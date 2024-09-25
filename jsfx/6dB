@@ -1,0 +1,21 @@
+desc: 6dB Gain
+
+slider1:6<-60,60,0.1>Gain (dB)
+
+@init
+slider1 = 6; // Default slider to +6dB
+gain = 10^(slider1/20); // Convert dB to linear gain
+
+@slider
+gain = 10^(slider1/20); // Update gain when slider is adjusted
+
+@sample
+spl0 *= gain;
+spl1 *= gain;
+
+@gfx
+gfx_clear = 0;
+gfx_r = 1; gfx_g = 1; gfx_b = 1; // Set text color to white
+gfx_a = 1; // Set text opacity to fully opaque
+gfx_x = 10; gfx_y = 10; // Position the text
+gfx_printf("+6dB");
