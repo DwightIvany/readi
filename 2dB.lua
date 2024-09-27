@@ -1,3 +1,16 @@
+--[[
+ToDo
+- Add decent header
+- Create decent command ID
+- Improve comments
+- Update readme
+- Additional testing
+- Update submix to note that it closes
+- Remove or edit my text
+- Have this only run on the selected track
+
+]]--
+
 -- Step 1: Get the selected media item (assume the item is already selected)
 local item = reaper.GetSelectedMediaItem(0, 0)
 if item == nil then
