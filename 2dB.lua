@@ -1,16 +1,24 @@
 --[[
-ToDo
-- Add decent header
-- Create decent command ID
-- Improve comments
-- Update readme
-- Additional testing
-- Update submix to note that it closes
-- Remove or edit my text
-- Have this only run on the selected track
-- Wrap the undo
-
+    ToDo
+    - Add decent header
+    - Create decent command ID
+    - Improve comments
+    - Update readme
+    
+    - Update submix to note that it closes
+    - Remove or edit my text
+    
+    - Wrap the undo
+    
+    -- Step 1: Get the selected track
+    -- Step 2: Move cursor to the next zero crossing in the selected item
+    -- Step 3: Move cursor to the previous zero crossing in the selected item
+    -- Step 4: Move cursor back to the peak position and select the item at that position
+    -- Step 5: Lower the volume of the peak item by 2 dB
+    -- Step 6: Select all three items (previous, peak, and next)
+    -- Step 7: Glue the selected items
 ]]--
+
 -- Step 1: Get the selected track
 local track = reaper.GetSelectedTrack(0, 0)
 if track == nil then
