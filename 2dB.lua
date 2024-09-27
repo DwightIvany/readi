@@ -1,5 +1,4 @@
 --[[
-
  * ReaScript Name: 2db (cut peak by 2dB)
  * Author: Dwight Ivany
  * Version: 1.0
@@ -7,23 +6,24 @@
  * Description: Reduces only the peak of the selected track by 2dB
  * REAPER: 6.0+
 
-ToDo
-    - Create decent command ID
-    - Improve comments
-    - Update readme
-    
-    - Remove or edit my text
-    
-    - Wrap the undo
-    
-    -- Step 1: Get the selected track
-    -- Step 2: Move cursor to the next zero crossing in the selected item
-    -- Step 3: Move cursor to the previous zero crossing in the selected item
-    -- Step 4: Move cursor back to the peak position and select the item at that position
-    -- Step 5: Lower the volume of the peak item by 2 dB
-    -- Step 6: Select all three items (previous, peak, and next)
-    -- Step 7: Glue the selected items
+ToDo (someday maybe)
+- Remove or edit my pop-up text
+- Create decent command ID (harder than I like)
+See "reaper-command-ids-for-custom-scripts.md"
+or https://forum.cockos.com/archive/index.php/t-205599.html
+
+What this script does:    
+- Step 1: Get the selected track
+- Step 2: Move cursor to the next zero crossing in the selected item and cut
+- Step 3: Move cursor to the previous zero crossing in the selected item and cut
+- Step 4: Move cursor back to the peak position and select the item at that position
+- Step 5: Lower the volume of the peak item by 2 dB
+- Step 6: Select all items in the track
+- Step 7: Glue the selected items
 ]]--
+
+-- Begin undo block
+reaper.Undo_BeginBlock()
 
 -- Step 1: Get the selected track
 local track = reaper.GetSelectedTrack(0, 0)
@@ -41,14 +41,10 @@ end
 
 -- Move cursor to the peak of the selected media item (SWS: Move cursor to item peak sample)
 reaper.Main_OnCommand(reaper.NamedCommandLookup("_SWS_FINDITEMPEAK"), 0)
-
--- Store the peak position
-local peak_pos = reaper.GetCursorPosition()
-
--- Disable auto-crossfades (41196: Options: Disable auto-crossfade on split)
-reaper.Main_OnCommand(41196, 0)
+local peak_pos = reaper.GetCursorPosition() -- Store the peak position
 
 -- Step 2: Move cursor to the next zero crossing in the selected item
+reaper.Main_OnCommand(41196, 0) -- Disable auto-crossfades
 reaper.Main_OnCommand(40790, 0) -- Move edit cursor to next zero crossing in items
 
 -- Store the next zero crossing position
@@ -114,3 +110,6 @@ reaper.UpdateArrange()
 reaper.ShowConsoleMsg("Peak Position: " .. peak_pos .. "\n")
 reaper.ShowConsoleMsg("Next Zero Crossing Position: " .. next_zero_pos .. "\n")
 reaper.ShowConsoleMsg("Previous Zero Crossing Position: " .. prev_zero_pos .. "\n")
+
+-- End undo block and commit
+reaper.Undo_EndBlock("2dB", -1)
