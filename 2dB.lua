@@ -8,13 +8,20 @@ ToDo
 - Update submix to note that it closes
 - Remove or edit my text
 - Have this only run on the selected track
+- Wrap the undo
 
 ]]--
+-- Step 1: Get the selected track
+local track = reaper.GetSelectedTrack(0, 0)
+if track == nil then
+    reaper.ShowConsoleMsg("No track selected.\n")
+    return
+end
 
--- Step 1: Get the selected media item (assume the item is already selected)
-local item = reaper.GetSelectedMediaItem(0, 0)
+-- Get the first selected media item on the track
+local item = reaper.GetTrackMediaItem(track, 0) -- Assume we're working with the first item on the track
 if item == nil then
-    reaper.ShowConsoleMsg("No media item selected.\n")
+    reaper.ShowConsoleMsg("No media item found on the selected track.\n")
     return
 end
 
@@ -68,10 +75,10 @@ end
 -- Step 6: Select all three items (previous, peak, and next)
 reaper.Main_OnCommand(40289, 0) -- Unselect all items
 
--- We will loop through and select items based on their positions
-local num_items = reaper.CountMediaItems(0)
+-- Loop through items on the selected track
+local num_items = reaper.CountTrackMediaItems(track)
 for i = 0, num_items - 1 do
-    local current_item = reaper.GetMediaItem(0, i)
+    local current_item = reaper.GetTrackMediaItem(track, i)
     local item_start = reaper.GetMediaItemInfo_Value(current_item, "D_POSITION")
     local item_end = item_start + reaper.GetMediaItemInfo_Value(current_item, "D_LENGTH")
     
