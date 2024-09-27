@@ -2,6 +2,7 @@
  * ReaScript Name: Duplicate Source
  * Author: Dwight Ivany
  * Version: 1.0
+ * Date: 2024-09-24
  * Description: Duplicates the selected track and disables the parent send, fx, hides and renames
  * REAPER: 6.0+
 --]]

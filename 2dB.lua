@@ -1,11 +1,17 @@
 --[[
-    ToDo
-    - Add decent header
+
+ * ReaScript Name: 2db (cut peak by 2dB)
+ * Author: Dwight Ivany
+ * Version: 1.0
+ * Date: 2024-09-27
+ * Description: Reduces only the peak of the selected track by 2dB
+ * REAPER: 6.0+
+
+ToDo
     - Create decent command ID
     - Improve comments
     - Update readme
     
-    - Update submix to note that it closes
     - Remove or edit my text
     
     - Wrap the undo

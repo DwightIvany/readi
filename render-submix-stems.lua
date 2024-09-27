@@ -1,3 +1,16 @@
+--[[
+ * ReaScript Name: Render Submix Stems
+ * Author: Dwight Ivany
+ * Version: 1.0
+ * Date: 2024-09-24
+ * Description: Renders stems bass, harmony, rhythm and vox to user specified folder
+ * REAPER: 6.0+
+ *
+ * Note this automatically closes render dialogs on completion.
+ * Some users will want to re-enable this
+
+--]]
+
 -- Function to turn off all mutes and solos
 function clear_mutes_and_solos()
   local track_count = reaper.CountTracks(0)
