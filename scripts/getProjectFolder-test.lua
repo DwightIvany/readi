@@ -13,14 +13,15 @@ I still need to test this on a Mac 2024-09-28
 function GetProjectFolder()
     -- Get the full project path including the .rpp file
     local proj, projectPath = reaper.EnumProjects(-1, "")
-    -- Find the last slash of GetProjectFolder both Windows and Linux/Mac
-    local lastSlash = string.match(projectPath, "[/\\]")
-    reaper.ShowConsoleMsg("\nlastSlash: " .. lastSlash)
-    -- Strip the file name to get only the directory path
-    local folderPath = string.match(projectPath, "(.*" .. lastSlash .. ")")   
+    -- Detect if running on Windows or Unix-based (Mac/Linux) systems
+    local isWindows = reaper.GetOS():match("Win")
+    -- Set the correct path separator based on the operating system
+    local sep = isWindows and "\\" or "/"
+    -- Find the last occurrence of the separator to get only the folder path (excluding the .rpp file)
+    local folderPath = projectPath:match("(.*" .. sep .. ")")
     return folderPath
-end
+  end
 
 -- Testing the function
 local projectFolder = GetProjectFolder()
-reaper.ShowConsoleMsg("\nProject folder: " .. projectFolder)
+reaper.ShowConsoleMsg("Project folder: " .. projectFolder)
