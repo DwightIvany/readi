@@ -2,30 +2,32 @@
  * ReaScript Name: Render Submix to Project Folder
  * Author: Dwight Ivany
  * Version: 1.0
- * Date: 2024-09-24
+ * Date: 2024-09-28
  * Description: Renders stems bass, harmony, rhythm and vox to user project .\submix\audio folder
  * REAPER: 6.0+
  *
  * Note this automatically closes render dialogs on completion.
  * Some users will want to re-enable this
-
- ToDo: overwrite / delete existing
- ToDo: make Mac friendly
-
 --]]
 
--- Function to turn off all mutes and solos
 -- Function to get the folder path of the current project
 function GetProjectFolder()
   -- Get the full project path including the .rpp file
   local proj, projectPath = reaper.EnumProjects(-1, "")
-  -- Find the last slash of GetProjectFolder both Windows and Linux/Mac
-  local lastSlash = string.match(projectPath, "[/\\]")
-  -- Strip the file name to get only the directory path
-  local folderPath = string.match(projectPath, "(.*" .. lastSlash .. ")")   
+  
+  -- Detect if running on Windows or Unix-based (Mac/Linux) systems
+  local isWindows = reaper.GetOS():match("Win")
+  
+  -- Set the correct path separator based on the operating system
+  local sep = isWindows and "\\" or "/"
+  
+  -- Find the last occurrence of the separator to get only the folder path (excluding the .rpp file)
+  local folderPath = projectPath:match("(.*" .. sep .. ")")
+  
   return folderPath
 end
 
+-- Function to turn off all mutes and solos
 function clear_mutes_and_solos()
   local track_count = reaper.CountTracks(0)
   for i = 0, track_count - 1 do
@@ -92,28 +94,13 @@ end
 
 -- Run the script
 reaper.Undo_BeginBlock()
-
+-- Get project folder path
+local isWindows = reaper.GetOS():match("Win") -- Detect if running on Windows or Mac/Linux
+local projectFolder = GetProjectFolder()
+local destinationPath = projectFolder .. (isWindows and "Submix\\Audio\\" or "Submix/Audio/")
 clear_mutes_and_solos()
 
---[[
--- Prompt user for destination path
-retval, destinationPath = reaper.GetUserInputs("Destination Path", 1, "Enter destination folder path:", "")
-if retval then
-  process_tracks(destinationPath)
-end
-]]--
-
--- reaper.ShowConsoleMsg("\nProject folder: " .. projectFolder)
-
-local projectFolder = GetProjectFolder()
-local destinationPath = projectFolder .. "Audio\\Submix\\" --ToDo fix for Mac
-
-print(destinationPath) -- Output: G:\Data\Dropbox\Audiobox\Dwight\Delme\Audio\Submix\
-
-
---retval, getProjectFolder = reaper.GetUserInputs("Destination Path", 1, "Enter destination folder path:", "")
---if retval then
+-- Process the tracks and render
 process_tracks(destinationPath)
---end
 
 reaper.Undo_EndBlock("Render individual tracks", -1)
