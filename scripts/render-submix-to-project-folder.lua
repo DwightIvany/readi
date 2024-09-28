@@ -14,16 +14,12 @@
 function GetProjectFolder()
   -- Get the full project path including the .rpp file
   local proj, projectPath = reaper.EnumProjects(-1, "")
-  
   -- Detect if running on Windows or Unix-based (Mac/Linux) systems
   local isWindows = reaper.GetOS():match("Win")
-  
   -- Set the correct path separator based on the operating system
   local sep = isWindows and "\\" or "/"
-  
   -- Find the last occurrence of the separator to get only the folder path (excluding the .rpp file)
   local folderPath = projectPath:match("(.*" .. sep .. ")")
-  
   return folderPath
 end
 
