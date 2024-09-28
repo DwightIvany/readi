@@ -45,7 +45,6 @@ I currently have csvChordinoInput be the file I want
 
 ToDo
 stop asking for the file
-wrap in undo
 always assume csv
 --]]
 
@@ -54,6 +53,10 @@ always assume csv
 -- Else, a script update will erase your mods.
 
 -- Display a message in the console for debugging
+
+-- Begin undo block
+reaper.Undo_BeginBlock()
+
 function Msg(value)
   if console then
     reaper.ShowConsoleMsg(tostring(value) .. "\n")
@@ -70,19 +73,21 @@ Chordino Vamp Plugin
 http://www.isophonics.net/nnls-chroma
   
 ]]
-reaper.MB(Info, "Creating reapeak file", 0)
+reaper.MB(Info, "Creating reapeak file", 0) --ToDo why this line
 
-retval_split,input_choose  = reaper.GetUserInputs("Choose File Type", 1, "txt or csv", "csv")
-            
-            
-if not retval_split then goto finish end
-            
+-- retval_split,input_choose  = reaper.GetUserInputs("Choose File Type", 1, "txt or csv", "csv")          
+-- retval_split = "csv"          
+
+-- if not retval_split then goto finish end           
 --if input_choose then
+-- console = true -- true/false: display debug messages in the console
+--      if input_choose == "txt" then sep = "\t" end-- default sep
+--      if input_choose == "csv" then sep = "," end 
 
-console = true -- true/false: display debug messages in the console
+input_choose  = "csv"    
+sep = ","     
 
-     if input_choose == "txt" then sep = "\t" end-- default sep
-     if input_choose == "csv" then sep = "," end 
+
 --(1)pattern,(2)type,(3)A verse B chorus,(4)weight,(5)mask,(6)duration,(7)bar
 --(1)shot,(2)0 shot 1 hold,(3)bar,(4)ticks,(5)duration ticks,weight,volume
 
@@ -302,7 +307,7 @@ if retval then
   commandID1 = reaper.NamedCommandLookup("_SWSMARKERLIST13")
   reaper.Main_OnCommand(commandID1, 0) -- SWS: Convert markers to regions
 
-  reaper.Undo_EndBlock("ReaTrak chordino chords csv to regions", -1) -- End of the undo block. Leave it at the bottom of your main function.
+  reaper.Undo_EndBlock("Import Chordino", -1) -- End of the undo block. Leave it at the bottom of your main function.
 
   reaper.UpdateArrange()
 
