@@ -223,9 +223,46 @@ function snap_all_regions_to_grid()
     --end  
 end  
 
+function GetProjectPaths()
+  -- Get the full project path including the .rpp file
+  local proj, projectPath = reaper.EnumProjects(-1, "")
+  -- Detect if running on Windows or Unix-based (Mac/Linux) systems
+  local isWindows = reaper.GetOS():match("Win")  
+  -- Set the correct path separator based on the operating system
+  local sep = isWindows and "\\" or "/"  
+  -- Find the last occurrence of the separator to get only the folder path (excluding the .rpp file)
+  local folderPath = projectPath:match("(.*" .. sep .. ")")
+  -- Extract the file name (with extension)
+  local projectFileName = projectPath:match("[^" .. sep .. "]+$")
+  -- Extract the file name without extension
+  local projectFileNameNoExt = projectFileName:match("(.+)%..+$")
+  return folderPath, projectFileName, projectFileNameNoExt
+end
 
 -- Main function
 function main()
+
+--[[Dwight's hack]]--
+  local folderPath, projectFileName, projectFileNameNoExt = GetProjectPaths()
+--  local csvChordinoInput = "G:\\Data\\Dropbox\\ToDo\\music-readme\\chordino\\" .. projectFileNameNoExt .. "-chordino.csv"
+local csvChordinoInput = "G:\\Data\\Dropbox\\ToDo\\music-readme\\chordino\\" .. projectFileNameNoExt .. "-chordino.csv"
+
+--  local sep = reaper.GetOS():match("Win") and "\\" or "/"
+  -- local csvChordinoInput = "G:" .. sep .. "Data" .. sep .. "Dropbox" .. sep .. "ToDo" .. sep .. "music-readme" .. sep .. "chordino" .. sep .. projectFileNameNoExt .. "-chordino.csv"
+  
+
+
+  reaper.ShowConsoleMsg("csvChordinoInput: " .. csvChordinoInput .. "\n")
+--  reaper.ShowConsoleMsg("Folder Path: " .. folderPath .. "\n")
+--  reaper.ShowConsoleMsg("File Name: " .. projectFileName .. "\n")
+--  reaper.ShowConsoleMsg("File Name without Extension: " .. projectFileNameNoExt .. "\n")
+
+-- "G:\Data\Dropbox\ToDo\music-readme\chordino\" .. projectFileNameNoExt
+
+
+
+--End my Hack
+
 
   folder = filetxt:match[[^@?(.*[\/])[^\/]-$]]
 
