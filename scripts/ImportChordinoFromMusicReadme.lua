@@ -39,10 +39,12 @@ That not only shows the evolution of chords, but of song structure
 Step 1. Replace user input
 Test example: G:\Data\Dropbox\ToDo\music-readme\chordino\Debug -chordino.cs
 "G:\Data\Dropbox\ToDo\music-readme\chordino\" .. projectFileNameNoExt
-
 return folderPath, projectFileName, projectFileNameNoExt
 
+I currently have csvChordinoInput be the file I want
+
 ToDo
+stop asking for the file
 wrap in undo
 always assume csv
 --]]
@@ -77,7 +79,6 @@ if not retval_split then goto finish end
             
 --if input_choose then
 
-
 console = true -- true/false: display debug messages in the console
 
      if input_choose == "txt" then sep = "\t" end-- default sep
@@ -93,9 +94,7 @@ col_color = 3
 col_pattern = 7
 col_ticks = 5
 
-
 bpm, beat_per_measure = reaper.GetProjectTimeSignature2(0)
-
 
 ------------------------------------------------------- END OF USER CONFIG AREA
 
@@ -157,7 +156,6 @@ function ParseCSVLine (line,sep)
   end
   return res
 end
-
 
 -- UTILITIES -------------------------------------------------------------
 
@@ -243,26 +241,13 @@ end
 function main()
 
 --[[Dwight's hack]]--
-  local folderPath, projectFileName, projectFileNameNoExt = GetProjectPaths()
---  local csvChordinoInput = "G:\\Data\\Dropbox\\ToDo\\music-readme\\chordino\\" .. projectFileNameNoExt .. "-chordino.csv"
-local csvChordinoInput = "G:\\Data\\Dropbox\\ToDo\\music-readme\\chordino\\" .. projectFileNameNoExt .. "-chordino.csv"
-
---  local sep = reaper.GetOS():match("Win") and "\\" or "/"
-  -- local csvChordinoInput = "G:" .. sep .. "Data" .. sep .. "Dropbox" .. sep .. "ToDo" .. sep .. "music-readme" .. sep .. "chordino" .. sep .. projectFileNameNoExt .. "-chordino.csv"
-  
-
-
-  reaper.ShowConsoleMsg("csvChordinoInput: " .. csvChordinoInput .. "\n")
---  reaper.ShowConsoleMsg("Folder Path: " .. folderPath .. "\n")
---  reaper.ShowConsoleMsg("File Name: " .. projectFileName .. "\n")
---  reaper.ShowConsoleMsg("File Name without Extension: " .. projectFileNameNoExt .. "\n")
-
 -- "G:\Data\Dropbox\ToDo\music-readme\chordino\" .. projectFileNameNoExt
-
-
-
+  local folderPath, projectFileName, projectFileNameNoExt = GetProjectPaths()
+  local csvChordinoInput = "G:\\Data\\Dropbox\\ToDo\\music-readme\\chordino\\" .. projectFileNameNoExt .. "-chordino.csv"
+  --  local sep = reaper.GetOS():match("Win") and "\\" or "/"
+  -- local csvChordinoInput = "G:" .. sep .. "Data" .. sep .. "Dropbox" .. sep .. "ToDo" .. sep .. "music-readme" .. sep .. "chordino" .. sep .. projectFileNameNoExt .. "-chordino.csv"
+  reaper.ShowConsoleMsg("csvChordinoInput: " .. csvChordinoInput .. "\n")
 --End my Hack
-
 
   folder = filetxt:match[[^@?(.*[\/])[^\/]-$]]
 
@@ -292,11 +277,7 @@ local csvChordinoInput = "G:\\Data\\Dropbox\\ToDo\\music-readme\\chordino\\" .. 
                   
     end
       
-end
-
-
-
-     
+end     
 
 -- INIT
 
