@@ -248,13 +248,13 @@ function main()
 --[[Dwight's hack]]--
 -- "G:\Data\Dropbox\ToDo\music-readme\chordino\" .. projectFileNameNoExt
   local folderPath, projectFileName, projectFileNameNoExt = GetProjectPaths()
-  local csvChordinoInput = "G:\\Data\\Dropbox\\ToDo\\music-readme\\chordino\\" .. projectFileNameNoExt .. "-chordino.csv"
+  local csvChordinoInput = "G:\\Data\\Dropbox\\ToDo\\music-readme\\chordino\\" .. projectFileNameNoExt .. " -chordino.csv"
   --  local sep = reaper.GetOS():match("Win") and "\\" or "/"
   -- local csvChordinoInput = "G:" .. sep .. "Data" .. sep .. "Dropbox" .. sep .. "ToDo" .. sep .. "music-readme" .. sep .. "chordino" .. sep .. projectFileNameNoExt .. "-chordino.csv"
   reaper.ShowConsoleMsg("csvChordinoInput: " .. csvChordinoInput .. "\n")
 --End my Hack
 
-  folder = filetxt:match[[^@?(.*[\/])[^\/]-$]]
+  folder = csvChordinoInput:match[[^@?(.*[\/])[^\/]-$]]
 
   for i, line in ipairs( lines ) do
     --if line[col_pattern] == "pattern" then 
@@ -286,33 +286,43 @@ end
 
 -- INIT
 
-retval, filetxt = reaper.GetUserFileNameForRead("", "Import Chordino chords to regions", input_choose)
+-- Remove this line:
+-- retval, filetxt = reaper.GetUserFileNameForRead("", "Import Chordino chords to regions", input_choose)
 
-if retval then
+-- Replace it with:
+local folderPath, projectFileName, projectFileNameNoExt = GetProjectPaths()
+local csvChordinoInput = "G:\\Data\\Dropbox\\ToDo\\music-readme\\chordino\\" .. projectFileNameNoExt .. "-chordino.csv"
+reaper.ShowConsoleMsg("csvChordinoInput: " .. csvChordinoInput .. "\n")
 
-  reaper.PreventUIRefresh(1)
+-- Now, replace all instances of `filetxt` with `csvChordinoInput`
+-- So, the following line:
+-- read_lines(csvChordinoInput)
 
-  reaper.Undo_BeginBlock() -- Begining of the undo block. Leave it at the top of your main function.
-  
-  reaper.ClearConsole()
+-- Becomes:
+read_lines(csvChordinoInput)
 
-  read_lines(filetxt)
-  
-  -- reaper.Main_OnCommand( reaper.NamedCommandLookup( "_SWSMARKERLIST10" ), -1) -- SWS: Delete all regions
+-- Rest of the script stays unchanged
+reaper.PreventUIRefresh(1)
 
-  main()
-  
-  snap_all_regions_to_grid()
-  
-  commandID1 = reaper.NamedCommandLookup("_SWSMARKERLIST13")
-  reaper.Main_OnCommand(commandID1, 0) -- SWS: Convert markers to regions
+reaper.Undo_BeginBlock() -- Beginning of the undo block. Leave it at the top of your main function.
 
-  reaper.Undo_EndBlock("Import Chordino", -1) -- End of the undo block. Leave it at the bottom of your main function.
+reaper.ClearConsole()
 
-  reaper.UpdateArrange()
+read_lines(csvChordinoInput)
 
-  reaper.PreventUIRefresh(-1)
+-- reaper.Main_OnCommand( reaper.NamedCommandLookup( "_SWSMARKERLIST10" ), -1) -- SWS: Delete all regions
 
-end
+main()
+
+snap_all_regions_to_grid()
+
+commandID1 = reaper.NamedCommandLookup("_SWSMARKERLIST13")
+reaper.Main_OnCommand(commandID1, 0) -- SWS: Convert markers to regions
+
+reaper.Undo_EndBlock("Import Chordino", -1) -- End of the undo block. Leave it at the bottom of your main function.
+
+reaper.UpdateArrange()
+
+reaper.PreventUIRefresh(-1)
 
 ::finish::
