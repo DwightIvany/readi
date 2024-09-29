@@ -10,18 +10,13 @@
     Forum Thread nil
  * Licence: GPL v3
  * REAPER: 5.0
- * Version: 1.0
+ * Version: 1.1
 
-ImportChordinoFromMusicReadme.lua
-
---]]
-
---[[
  * Changelog:
- * v1.0 (2019-01-26)
-  + Initial Release
+ * v1.0 (2019-01-26 X-Raym version
+ * v1.1 eliminate the need for user input in Dwight's workflow
 
-My intention is to hard code this to simplify my workflow
+My intention is to hard code this copy of ImportChordino.lua to simplify my workflow
 
 If I use my repo on
 G:\Data\Dropbox\ToDo\music-readme\chordino
@@ -36,16 +31,15 @@ Then my workflow could be
 Not only will this save me time, and improve consistency. It means I will automatically get git history on my markers.
 That not only shows the evolution of chords, but of song structure
 
-Step 1. Replace user input
-Test example: G:\Data\Dropbox\ToDo\music-readme\chordino\Debug -chordino.cs
-"G:\Data\Dropbox\ToDo\music-readme\chordino\" .. projectFileNameNoExt
-return folderPath, projectFileName, projectFileNameNoExt
+Step 1. Always assume csv
+Step 2. Replace user input
 
-I currently have csvChordinoInput be the file I want
+As of 2024-09-28 the script has simplified my workflow, and no longer requiring my user input
+Future Steps could include:
+- Export marks before run
+- Delete All Markers
+- Export Markers
 
-ToDo
-stop asking for the file
-always assume csv
 --]]
 
 -- USER CONFIG AREA -----------------------------------------------------------
@@ -55,6 +49,7 @@ always assume csv
 -- Display a message in the console for debugging
 
 -- Begin undo block
+
 reaper.Undo_BeginBlock()
 
 function Msg(value)
@@ -75,21 +70,9 @@ http://www.isophonics.net/nnls-chroma
 ]]
 reaper.MB(Info, "Creating reapeak file", 0) --ToDo why this line
 
--- retval_split,input_choose  = reaper.GetUserInputs("Choose File Type", 1, "txt or csv", "csv")          
--- retval_split = "csv"          
-
--- if not retval_split then goto finish end           
---if input_choose then
--- console = true -- true/false: display debug messages in the console
---      if input_choose == "txt" then sep = "\t" end-- default sep
---      if input_choose == "csv" then sep = "," end 
-
+-- X-Raym version ask for csv / text, Dwight forces csv input with the next two lines
 input_choose  = "csv"    
 sep = ","     
-
-
---(1)pattern,(2)type,(3)A verse B chorus,(4)weight,(5)mask,(6)duration,(7)bar
---(1)shot,(2)0 shot 1 hold,(3)bar,(4)ticks,(5)duration ticks,weight,volume
 
 col_pos = 1 -- Position column index in the CSV
 col_pos_end = 4 -- Length column index in the CS
@@ -101,7 +84,7 @@ col_ticks = 5
 
 bpm, beat_per_measure = reaper.GetProjectTimeSignature2(0)
 
-------------------------------------------------------- END OF USER CONFIG AREA
+--- END OF USER CONFIG AREA
 
 function ColorHexToInt(hex)
   hex = hex:gsub("#", "")
@@ -180,7 +163,7 @@ function ReverseTable(t)
     return reversedTable
 end
 
---------------------------------------------------------- END OF UTILITIES
+--- END OF UTILITIES
 
 function read_lines(filepath)
 
@@ -226,6 +209,7 @@ function snap_all_regions_to_grid()
     --end  
 end  
 
+-- Dwight's function to get GetProjectPaths in a way I find useful
 function GetProjectPaths()
   -- Get the full project path including the .rpp file
   local proj, projectPath = reaper.EnumProjects(-1, "")
@@ -245,10 +229,11 @@ end
 -- Main function
 function main()
 
---[[Dwight's hack]]--
+--Dwight's hack to get the file in a folder I expect, instead og requiring my input
 -- "G:\Data\Dropbox\ToDo\music-readme\chordino\" .. projectFileNameNoExt
   local folderPath, projectFileName, projectFileNameNoExt = GetProjectPaths()
   local csvChordinoInput = "G:\\Data\\Dropbox\\ToDo\\music-readme\\chordino\\" .. projectFileNameNoExt .. " -chordino.csv"
+  -- ToDo make this Mac ready
   --  local sep = reaper.GetOS():match("Win") and "\\" or "/"
   -- local csvChordinoInput = "G:" .. sep .. "Data" .. sep .. "Dropbox" .. sep .. "ToDo" .. sep .. "music-readme" .. sep .. "chordino" .. sep .. projectFileNameNoExt .. "-chordino.csv"
   reaper.ShowConsoleMsg("csvChordinoInput: " .. csvChordinoInput .. "\n")
@@ -276,42 +261,26 @@ function main()
                reaper.AddProjectMarker2(0, false, pos, 0, name, -1, color)
         end
       end
-         
-         
-         --snap_all_regions_to_grid()
-                  
-    end
-      
+    end    
 end     
 
 -- INIT
 
--- Remove this line:
--- retval, filetxt = reaper.GetUserFileNameForRead("", "Import Chordino chords to regions", input_choose)
-
--- Replace it with:
+-- ToDo in debug, I needed my hack here maybe a local problem
 local folderPath, projectFileName, projectFileNameNoExt = GetProjectPaths()
 local csvChordinoInput = "G:\\Data\\Dropbox\\ToDo\\music-readme\\chordino\\" .. projectFileNameNoExt .. "-chordino.csv"
 reaper.ShowConsoleMsg("csvChordinoInput: " .. csvChordinoInput .. "\n")
 
--- Now, replace all instances of `filetxt` with `csvChordinoInput`
--- So, the following line:
--- read_lines(csvChordinoInput)
-
--- Becomes:
 read_lines(csvChordinoInput)
 
--- Rest of the script stays unchanged
+-- X-Raym's main code
 reaper.PreventUIRefresh(1)
-
 reaper.Undo_BeginBlock() -- Beginning of the undo block. Leave it at the top of your main function.
-
 reaper.ClearConsole()
 
 read_lines(csvChordinoInput)
-
 -- reaper.Main_OnCommand( reaper.NamedCommandLookup( "_SWSMARKERLIST10" ), -1) -- SWS: Delete all regions
-
+-- interesting that X-Raym had this commented out, I might want to move this up and include it
 main()
 
 snap_all_regions_to_grid()
