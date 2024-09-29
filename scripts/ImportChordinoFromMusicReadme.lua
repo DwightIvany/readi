@@ -38,7 +38,9 @@ As of 2024-09-28 the script has simplified my workflow, and no longer requiring 
 Future Steps could include:
 - Export marks before run
 - Delete All Markers
-- Export Markers
+- Export Markers (my current version does not format csv correctly)
+
+ToDo comment out info that requires ok
 
 --]]
 
@@ -52,7 +54,7 @@ Future Steps could include:
 
 reaper.Undo_BeginBlock()
 
-function Msg(value)
+function Msg(value) -- ToDo dup
   if console then
     reaper.ShowConsoleMsg(tostring(value) .. "\n")
   end
@@ -68,7 +70,7 @@ Chordino Vamp Plugin
 http://www.isophonics.net/nnls-chroma
   
 ]]
-reaper.MB(Info, "Creating reapeak file", 0) --ToDo why this line
+-- reaper.MB(Info, "Creating reapeak file", 0) --ToDo why this line
 
 -- X-Raym version ask for csv / text, Dwight forces csv input with the next two lines
 input_choose  = "csv"    
@@ -236,7 +238,7 @@ function main()
   -- ToDo make this Mac ready
   --  local sep = reaper.GetOS():match("Win") and "\\" or "/"
   -- local csvChordinoInput = "G:" .. sep .. "Data" .. sep .. "Dropbox" .. sep .. "ToDo" .. sep .. "music-readme" .. sep .. "chordino" .. sep .. projectFileNameNoExt .. "-chordino.csv"
-  reaper.ShowConsoleMsg("csvChordinoInput: " .. csvChordinoInput .. "\n")
+  -- reaper.ShowConsoleMsg("csvChordinoInput: " .. csvChordinoInput .. "\n")
 --End my Hack
 
 --
@@ -275,7 +277,7 @@ end
 -- Close the file
 file:close()
 
-reaper.ShowMessageBox("Markers and regions exported to C:\\markers.csv", "Export complete", 0)
+-- reaper.ShowMessageBox("Markers and regions exported to C:\\markers.csv", "Export complete", 0)  --todo undo comment
 
 
 -- ToDo delete the old version or overwrite
@@ -308,11 +310,10 @@ reaper.ShowMessageBox("Markers and regions exported to C:\\markers.csv", "Export
 end     
 
 -- INIT
-
 -- ToDo in debug, I needed my hack here maybe a local problem
 local folderPath, projectFileName, projectFileNameNoExt = GetProjectPaths()
 local csvChordinoInput = "G:\\Data\\Dropbox\\ToDo\\music-readme\\chordino\\" .. projectFileNameNoExt .. " -chordino.csv" --todo get this down to once
-reaper.ShowConsoleMsg("csvChordinoInput: " .. csvChordinoInput .. "\n")
+-- reaper.ShowConsoleMsg("csvChordinoInput: " .. csvChordinoInput .. "\n") --not run
 
 read_lines(csvChordinoInput)
 
