@@ -25,6 +25,15 @@ end
 
 -- Function to render selected track to a file
 function render_track(track, name, destinationPath)
+  -- Check if the file already exists and delete it
+  local filePath = destinationPath .. name .. ".wav"
+
+  -- I would like this code to work many users would not
+  -- if reaper.file_exists(filePath) then 
+  --   os.remove(filePath)
+  --   reaper.ShowConsoleMsg("Deleted existing file: " .. filePath .. "\n")
+  -- end
+
   -- Clear all solo states first
   reaper.Main_OnCommand(40340, 0) -- Unsolo all tracks
   
