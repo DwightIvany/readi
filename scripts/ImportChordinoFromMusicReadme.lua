@@ -10,7 +10,8 @@
     Forum Thread nil
  * Licence: GPL v3
  * REAPER: 5.0
- * Version: 1.1
+ * Version: 1.2
+ * Date: 2024-09-29
 
  * Changelog:
  * v1.0 (2019-01-26 X-Raym version
@@ -31,27 +32,19 @@ Then my workflow could be
 Not only will this save me time, and improve consistency. It means I will automatically get git history on my markers.
 That not only shows the evolution of chords, but of song structure
 
-Step 1. Always assume csv
-Step 2. Replace user input
+Always assume chordino file is csv
 
-As of 2024-09-28 the script has simplified my workflow, and no longer requiring my user input
+This script does the following steps:
+1. Export existing markers
+2. Delete existing markers
+3. Import Chordino
+
+As of 2024-09-29 the script has simplified my workflow, and no longer requires my user input
 Future Steps could include:
-- Export marks before run
-- Delete All Markers
-- Export Markers (my current version does not format csv correctly)
-
-ToDo comment out info that requires ok
-
---]]
-
--- USER CONFIG AREA -----------------------------------------------------------
--- Duplicate and Rename the script if you want to modify this.
--- Else, a script update will erase your mods.
-
--- Display a message in the console for debugging
+- Convert existing regions to markers keeping color. I should first test this manually a few times
+]]--
 
 -- Begin undo block
-
 reaper.Undo_BeginBlock()
 
 function Msg(value) -- ToDo dup
@@ -60,33 +53,21 @@ function Msg(value) -- ToDo dup
   end
 end
 
-Info = 
-[[Sonic Visualiser load your audio file
-Transform > Chordino
-File > Export Annotation Layer
-https://www.sonicvisualiser.org/  Win/Lin/Mac
-
-Chordino Vamp Plugin
-http://www.isophonics.net/nnls-chroma
-  
-]]
--- reaper.MB(Info, "Creating reapeak file", 0) --ToDo why this line
-
+-- START OF USER CONFIG AREA
 -- X-Raym version ask for csv / text, Dwight forces csv input with the next two lines
 input_choose  = "csv"    
 sep = ","     
-
-col_pos = 1 -- Position column index in the CSV
-col_pos_end = 4 -- Length column index in the CS
-col_len = 6 -- Length column index in the CSV
+-- this is different than Reapers default for export command
+col_pos = 1 -- Position column index in the CSV aka #
 col_name = 2 -- Name column index in the CSV
 col_color = 3
-col_pattern = 7
+col_pos_end = 4 -- Length column index in the CS
 col_ticks = 5
-
+col_len = 6 -- Length column index in the CSV
+col_pattern = 7
+-- Essential info for csv to make sense
 bpm, beat_per_measure = reaper.GetProjectTimeSignature2(0)
-
---- END OF USER CONFIG AREA
+-- END OF USER CONFIG AREA
 
 function ColorHexToInt(hex)
   hex = hex:gsub("#", "")
@@ -96,18 +77,11 @@ function ColorHexToInt(hex)
   return reaper.ColorToNative(R, G, B)
 end
 
--- Optimization
+-- X-Raym Optimization
 local reaper = reaper
 
--- CSV to Table
--- http://lua-users.org/wiki/LuaCsv
+-- CSV to Table http://lua-users.org/wiki/LuaCsv
 function ParseCSVLine (line,sep)
-  --[[
-  local line = string.gsub(line, "{.*}", "") -- remove { } and text between them
-  local line = string.gsub(line, ";.*", "") -- remove ; and text after it
-  local line = string.gsub(line, "pattern,PreFill.*", "") -- remove pattern,PreFill line
-  
-  --]]
   local res = {}
   local pos = 1 
   sep = sep or ','
@@ -147,7 +121,7 @@ function ParseCSVLine (line,sep)
   return res
 end
 
--- UTILITIES -------------------------------------------------------------
+--- UTILITIES
 
 -- Display a message in the console for debugging
 function Msg(value)
@@ -168,47 +142,29 @@ end
 --- END OF UTILITIES
 
 function read_lines(filepath)
-
   lines = {}
-
   local f = io.input(filepath)
   repeat
-
     s = f:read ("*l") -- read one line
-
     if s then  -- if not end of file (EOF)
       table.insert(lines, ParseCSVLine (s,sep))
     end
-
   until not s  -- until end of file
-         
-
   f:close()
-
 end
 
 function snap_all_regions_to_grid()
-
       reaper.Main_OnCommand(40754, 0) -- Enable snap
-      
       region_count , num_markersOut, num_regionsOut = reaper.CountProjectMarkers(0)
-
       for i=0, region_count -1 do
-      
        --EnumProjectMarkers(i, is_region, region_start, region_end, #name, region_id)
        retval, isrgnOut, posOut, rgnendOut, region_name, markrgnindexnumberOut, colorOut = reaper.EnumProjectMarkers3(0, i)      
-      
       --if isrgnOut then
-         
          region_snapped_start =  reaper.SnapToGrid(0, posOut)
          region_snapped_end =  reaper.SnapToGrid(0, rgnendOut) 
-         
          --SetProjectMarker(region_id, 1, region_snapped_start, region_snapped_end, #name)
-         
          reaper.SetProjectMarker3( 0, markrgnindexnumberOut, isrgnOut, region_snapped_start, region_snapped_end, region_name , colorOut )
-         
       end
-    --end  
 end  
 
 -- Dwight's function to get GetProjectPaths in a way I find useful
@@ -239,9 +195,7 @@ function main()
   --  local sep = reaper.GetOS():match("Win") and "\\" or "/"
   -- local csvChordinoInput = "G:" .. sep .. "Data" .. sep .. "Dropbox" .. sep .. "ToDo" .. sep .. "music-readme" .. sep .. "chordino" .. sep .. projectFileNameNoExt .. "-chordino.csv"
   -- reaper.ShowConsoleMsg("csvChordinoInput: " .. csvChordinoInput .. "\n")
---End my Hack
 
---
 -- Export existing markers
 -- Define the output file path
 local exportMarkerPath = "G:\\Data\\Dropbox\\ToDo\\music-readme\\chordino\\" .. projectFileNameNoExt .. " -markers.csv"
@@ -276,6 +230,7 @@ end
 
 -- Close the file
 file:close()
+-- End of marker export
 
 -- Confirm the export with a message
 reaper.ShowMessageBox("Markers and regions exported", "Export complete", 0)
@@ -284,27 +239,18 @@ reaper.ShowMessageBox("Markers and regions exported", "Export complete", 0)
 reaper.Main_OnCommand(reaper.NamedCommandLookup("_SWSMARKERLIST10"), 0)
 -- ToDo Convert regions to markers
 
-
--- ToDo delete the old version or overwrite
--- End of marker export
-
-
   folder = csvChordinoInput:match[[^@?(.*[\/])[^\/]-$]]
 
   for i, line in ipairs( lines ) do
     --if line[col_pattern] == "pattern" then 
-   
      if i > 1 then
-      
       -- Name Variables
       local pos = line[col_pos]
       --local pos_end = tonumber(line[col_pos] +1) --tonumber(line[col_pos_end])
       local len =  line[col_len] 
       local name = line[col_name]
       local color = 0
-
         color = ColorHexToInt("#3776EB")|0x1000000
-        
         --Msg(" Marker " .. pos .."Name ".. name)
         if name == "N" then i = i +1
            else
@@ -333,14 +279,11 @@ read_lines(csvChordinoInput)
 main()
 
 snap_all_regions_to_grid()
-
 commandID1 = reaper.NamedCommandLookup("_SWSMARKERLIST13")
 reaper.Main_OnCommand(commandID1, 0) -- SWS: Convert markers to regions
 
 reaper.Undo_EndBlock("Import Chordino", -1) -- End of the undo block. Leave it at the bottom of your main function.
 
 reaper.UpdateArrange()
-
 reaper.PreventUIRefresh(-1)
-
 ::finish::
