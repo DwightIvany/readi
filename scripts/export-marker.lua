@@ -1,5 +1,5 @@
 -- Define the output file path
-local outputFilePath = "G:\\Data\\Dropbox\\ToDo\\music-readme\\chordino\\markers.csv"
+local outputFilePath = "C:\\markers.csv"
 
 -- Open the output file for writing
 local file = io.open(outputFilePath, "w")
@@ -8,8 +8,8 @@ if not file then
   return
 end
 
--- Write the header row
-file:write("Index,Type,Position,Length,Name\n")
+-- Write the correct header row for Reaper's import format
+file:write("#,Name,Start,End,Length,Color\n")
 
 -- Get the number of markers and regions in the project
 local retval, numMarkers, numRegions = reaper.CountProjectMarkers(0)
@@ -19,17 +19,17 @@ for i = 0, numMarkers + numRegions - 1 do
   -- Get details for the current marker or region
   local retval, isRegion, position, regionEnd, name, idx = reaper.EnumProjectMarkers(i)
 
-  -- Determine if it's a marker or a region
-  local markerType = isRegion and "Region" or "Marker"
-
-  -- Calculate the length of the region (for markers, this will be 0)
-  local length = isRegion and (regionEnd - position) or 0
-
-  -- Write the marker/region data to the CSV file
-  file:write(string.format("%d,%s,%.4f,%.4f,%s\n", idx, markerType, position, length, name))
+  -- If it's a region, calculate the length and include the end position
+  local startPos = position
+  local endPos = isRegion and regionEnd or ""
+  local length = isRegion and (regionEnd - position) or ""
+  
+  -- Write the marker/region data to the CSV file, omitting the color (not used in this case)
+  file:write(string.format("%d,%s,%.4f,%s,%s,\n", idx, name, startPos, endPos, length))
 end
 
 -- Close the file
 file:close()
 
+-- Confirm the export with a message
 reaper.ShowMessageBox("Markers and regions exported to C:\\markers.csv", "Export complete", 0)
