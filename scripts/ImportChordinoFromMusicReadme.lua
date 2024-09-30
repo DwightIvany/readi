@@ -123,13 +123,6 @@ end
 
 --- UTILITIES
 
--- Display a message in the console for debugging
-function Msg(value)
-  if console then
-    reaper.ShowConsoleMsg(tostring(value) .. "\n")
-  end
-end
-
 function ReverseTable(t)
     local reversedTable = {}
     local itemCount = #t
@@ -154,16 +147,25 @@ function read_lines(filepath)
 end
 
 function snap_all_regions_to_grid()
+
       reaper.Main_OnCommand(40754, 0) -- Enable snap
+      
       region_count , num_markersOut, num_regionsOut = reaper.CountProjectMarkers(0)
+
       for i=0, region_count -1 do
+      
        --EnumProjectMarkers(i, is_region, region_start, region_end, #name, region_id)
        retval, isrgnOut, posOut, rgnendOut, region_name, markrgnindexnumberOut, colorOut = reaper.EnumProjectMarkers3(0, i)      
+      
       --if isrgnOut then
+         
          region_snapped_start =  reaper.SnapToGrid(0, posOut)
          region_snapped_end =  reaper.SnapToGrid(0, rgnendOut) 
+         
          --SetProjectMarker(region_id, 1, region_snapped_start, region_snapped_end, #name)
+         
          reaper.SetProjectMarker3( 0, markrgnindexnumberOut, isrgnOut, region_snapped_start, region_snapped_end, region_name , colorOut )
+         
       end
 end  
 
@@ -187,18 +189,16 @@ end
 -- Main function
 function main()
 
---Dwight's hack to get the file in a folder I expect, instead og requiring my input
--- "G:\Data\Dropbox\ToDo\music-readme\chordino\" .. projectFileNameNoExt
+--Dwight's hack to get the file in a folder I expect, instead of requiring user input
   local folderPath, projectFileName, projectFileNameNoExt = GetProjectPaths()
   local csvChordinoInput = "G:\\Data\\Dropbox\\ToDo\\music-readme\\chordino\\" .. projectFileNameNoExt .. " -chordino.csv"
   -- ToDo make this Mac ready
-  --  local sep = reaper.GetOS():match("Win") and "\\" or "/"
+  -- local sep = reaper.GetOS():match("Win") and "\\" or "/"
   -- local csvChordinoInput = "G:" .. sep .. "Data" .. sep .. "Dropbox" .. sep .. "ToDo" .. sep .. "music-readme" .. sep .. "chordino" .. sep .. projectFileNameNoExt .. "-chordino.csv"
-  -- reaper.ShowConsoleMsg("csvChordinoInput: " .. csvChordinoInput .. "\n")
-
+ 
 -- Export existing markers
 -- Define the output file path
-local exportMarkerPath = "G:\\Data\\Dropbox\\ToDo\\music-readme\\chordino\\" .. projectFileNameNoExt .. " -markers.csv"
+local exportMarkerPath = "G:\\Data\\Dropbox\\ToDo\\reaper\\markers\\" .. projectFileNameNoExt .. " -markers.csv"
 
 -- Open the output file for writing
 local file = io.open(exportMarkerPath, "w")
@@ -208,7 +208,7 @@ if not file then
   return
 end
 
--- Write the correct header row for Reaper's import format
+-- Write the header row for Reaper's import format
 file:write("#,Name,Start,End,Length,Color\n")
 
 -- Get the number of markers and regions in the project
@@ -243,14 +243,18 @@ reaper.Main_OnCommand(reaper.NamedCommandLookup("_SWSMARKERLIST10"), 0)
 
   for i, line in ipairs( lines ) do
     --if line[col_pattern] == "pattern" then 
+   
      if i > 1 then
+      
       -- Name Variables
       local pos = line[col_pos]
       --local pos_end = tonumber(line[col_pos] +1) --tonumber(line[col_pos_end])
       local len =  line[col_len] 
       local name = line[col_name]
       local color = 0
+
         color = ColorHexToInt("#3776EB")|0x1000000
+        
         --Msg(" Marker " .. pos .."Name ".. name)
         if name == "N" then i = i +1
            else
@@ -263,8 +267,7 @@ end
 -- INIT
 -- ToDo in debug, I needed my hack here maybe a local problem
 local folderPath, projectFileName, projectFileNameNoExt = GetProjectPaths()
-local csvChordinoInput = "G:\\Data\\Dropbox\\ToDo\\music-readme\\chordino\\" .. projectFileNameNoExt .. " -chordino.csv" --todo get this down to once
--- reaper.ShowConsoleMsg("csvChordinoInput: " .. csvChordinoInput .. "\n") --not run
+local csvChordinoInput = "G:\\Data\\Dropbox\\ToDo\\reaper\\chordino\\" .. projectFileNameNoExt .. " -chordino.csv" --todo get this down to once
 
 read_lines(csvChordinoInput)
 
@@ -279,11 +282,14 @@ read_lines(csvChordinoInput)
 main()
 
 snap_all_regions_to_grid()
+
 commandID1 = reaper.NamedCommandLookup("_SWSMARKERLIST13")
 reaper.Main_OnCommand(commandID1, 0) -- SWS: Convert markers to regions
 
 reaper.Undo_EndBlock("Import Chordino", -1) -- End of the undo block. Leave it at the bottom of your main function.
 
 reaper.UpdateArrange()
+
 reaper.PreventUIRefresh(-1)
+
 ::finish::
