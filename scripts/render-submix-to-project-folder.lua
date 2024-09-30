@@ -36,7 +36,31 @@ function clear_mutes_and_solos()
 end
 
 -- Function to render selected track to a file
+-- Function to render selected track to a file
 function render_track(track, name, destinationPath)
+  -- Construct the full file path
+  local filePath = destinationPath .. name .. ".wav"
+  
+  -- Debug: Output the file path
+  reaper.ShowConsoleMsg("Trying to delete: " .. filePath .. "\n")
+  
+  -- Check if the file exists by trying to open it
+  local file = io.open(filePath, "r")
+  if file then
+    file:close()
+    
+    -- Try to delete the file
+    local result, errorMsg = os.remove(filePath)
+    if result then
+      reaper.ShowConsoleMsg("Deleted existing file: " .. filePath .. "\n")
+    else
+      reaper.ShowConsoleMsg("Failed to delete file: " .. errorMsg .. "\n")
+    end
+  else
+    reaper.ShowConsoleMsg("File does not exist: " .. filePath .. "\n")
+  end
+
+  -- Proceed with rendering after deletion attempt
   -- Clear all solo states first
   reaper.Main_OnCommand(40340, 0) -- Unsolo all tracks
   
