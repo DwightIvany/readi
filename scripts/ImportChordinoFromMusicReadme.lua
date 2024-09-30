@@ -16,7 +16,7 @@
  * Changelog:
  * v1.0 (2019-01-26 X-Raym version
  * v1.1 eliminate the need for user input in Dwight's workflow
-
+ 
 My intention is to hard code this copy of ImportChordino.lua to simplify my workflow
 
 If I use my repo on
@@ -42,6 +42,8 @@ This script does the following steps:
 As of 2024-09-29 the script has simplified my workflow, and no longer requires my user input
 Future Steps could include:
 - Convert existing regions to markers keeping color. I should first test this manually a few times
+- Clean up my indents and sort main vs INIT
+
 ]]--
 
 -- Begin undo block
@@ -191,53 +193,53 @@ function main()
 
 --Dwight's hack to get the file in a folder I expect, instead of requiring user input
   local folderPath, projectFileName, projectFileNameNoExt = GetProjectPaths()
-  local csvChordinoInput = "G:\\Data\\Dropbox\\ToDo\\music-readme\\chordino\\" .. projectFileNameNoExt .. " -chordino.csv"
+  local csvChordinoInput = "G:\\Data\\Dropbox\\ToDo\\music-readme\\reaper\\chordino\\" .. projectFileNameNoExt .. " -chordino.csv"
   -- ToDo make this Mac ready
   -- local sep = reaper.GetOS():match("Win") and "\\" or "/"
   -- local csvChordinoInput = "G:" .. sep .. "Data" .. sep .. "Dropbox" .. sep .. "ToDo" .. sep .. "music-readme" .. sep .. "chordino" .. sep .. projectFileNameNoExt .. "-chordino.csv"
  
--- Export existing markers
--- Define the output file path
-local exportMarkerPath = "G:\\Data\\Dropbox\\ToDo\\reaper\\markers\\" .. projectFileNameNoExt .. " -markers.csv"
+  -- Export existing markers
+  -- Define the output file path
+  local exportMarkerPath = "G:\\Data\\Dropbox\\ToDo\\music-readme\\reaper\\markers\\" .. projectFileNameNoExt .. " -markers.csv"
 
--- Open the output file for writing
-local file = io.open(exportMarkerPath, "w")
+  -- Open the output file for writing
+  local file = io.open(exportMarkerPath, "w")
 
-if not file then
-  reaper.ShowMessageBox("Error opening file for writing", "Error", 0)
-  return
-end
+  if not file then
+    reaper.ShowMessageBox("Error opening file for writing", "Error", 0)
+    return
+  end
 
--- Write the header row for Reaper's import format
-file:write("#,Name,Start,End,Length,Color\n")
+  -- Write the header row for Reaper's import format
+  file:write("#,Name,Start,End,Length,Color\n")
 
--- Get the number of markers and regions in the project
-local retval, numMarkers, numRegions = reaper.CountProjectMarkers(0)
+  -- Get the number of markers and regions in the project
+  local retval, numMarkers, numRegions = reaper.CountProjectMarkers(0)
 
--- Loop through all markers and regions
-for i = 0, numMarkers + numRegions - 1 do
-  -- Get details for the current marker or region
-  local retval, isRegion, position, regionEnd, name, idx = reaper.EnumProjectMarkers(i)
+  -- Loop through all markers and regions
+  for i = 0, numMarkers + numRegions - 1 do
+    -- Get details for the current marker or region
+    local retval, isRegion, position, regionEnd, name, idx = reaper.EnumProjectMarkers(i)
 
-  -- If it's a region, calculate the length and include the end position
-  local startPos = position
-  local endPos = isRegion and regionEnd or ""
-  local length = isRegion and (regionEnd - position) or ""
-  
-  -- Write the marker/region data to the CSV file, omitting the color (not used in this case)
-  file:write(string.format("%d,%s,%.4f,%s,%s,\n", idx, name, startPos, endPos, length))
-end
+    -- If it's a region, calculate the length and include the end position
+    local startPos = position
+    local endPos = isRegion and regionEnd or ""
+    local length = isRegion and (regionEnd - position) or ""
+    
+    -- Write the marker/region data to the CSV file, omitting the color (not used in this case)
+    file:write(string.format("%d,%s,%.4f,%s,%s,\n", idx, name, startPos, endPos, length))
+  end
 
--- Close the file
-file:close()
--- End of marker export
+  -- Close the file
+  file:close()
+  -- End of marker export
 
--- Confirm the export with a message
-reaper.ShowMessageBox("Markers and regions exported", "Export complete", 0)
+  -- Confirm the export with a message
+  reaper.ShowMessageBox("Markers and regions exported", "Export complete", 0)
 
--- SWS: Delete all regions _SWSMARKERLIST10
-reaper.Main_OnCommand(reaper.NamedCommandLookup("_SWSMARKERLIST10"), 0)
--- ToDo Convert regions to markers
+  -- SWS: Delete all regions _SWSMARKERLIST10
+  reaper.Main_OnCommand(reaper.NamedCommandLookup("_SWSMARKERLIST10"), 0)
+  -- ToDo Convert regions to markers
 
   folder = csvChordinoInput:match[[^@?(.*[\/])[^\/]-$]]
 
@@ -264,10 +266,10 @@ reaper.Main_OnCommand(reaper.NamedCommandLookup("_SWSMARKERLIST10"), 0)
     end    
 end     
 
+-- ToDo fix indent
 -- INIT
--- ToDo in debug, I needed my hack here maybe a local problem
 local folderPath, projectFileName, projectFileNameNoExt = GetProjectPaths()
-local csvChordinoInput = "G:\\Data\\Dropbox\\ToDo\\reaper\\chordino\\" .. projectFileNameNoExt .. " -chordino.csv" --todo get this down to once
+local csvChordinoInput = "G:\\Data\\Dropbox\\ToDo\\music-readme\\reaper\\chordino\\" .. projectFileNameNoExt .. " -chordino.csv" --todo get this down to once
 
 read_lines(csvChordinoInput)
 
