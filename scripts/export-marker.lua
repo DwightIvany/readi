@@ -7,7 +7,7 @@
  * Date: 2024-09-30
 
  * Changelog:
- * v0.9 2024-09-30
+ * v1.0 2024-09-30
  ]]--
 
 -- Begin undo block
@@ -37,23 +37,9 @@ end
 
 -- Main function
 function main()
-
-  --Dwight's hack to get the file in a folder I expect, instead og requiring my input
-  -- "G:\Data\Dropbox\ToDo\music-readme\chordino\" .. projectFileNameNoExt
     local folderPath, projectFileName, projectFileNameNoExt = GetProjectPaths()
-
-    Msg(projectFileNameNoExt)
-
-
-    --    local csvChordinoInput = "G:\\Data\\Dropbox\\ToDo\\music-readme\\chordino\\" .. projectFileNameNoExt .. " -chordino.csv"
-    -- ToDo make this Mac ready
-    --  local sep = reaper.GetOS():match("Win") and "\\" or "/"
-    -- local csvChordinoInput = "G:" .. sep .. "Data" .. sep .. "Dropbox" .. sep .. "ToDo" .. sep .. "music-readme" .. sep .. "chordino" .. sep .. projectFileNameNoExt .. "-chordino.csv"
-    -- reaper.ShowConsoleMsg("csvChordinoInput: " .. csvChordinoInput .. "\n")
-  
-  -- Export existing markers
   -- Define the output file path
-  local exportMarkerPath = "G:\\Data\\Dropbox\\ToDo\\music-readme\\chordino\\" .. projectFileNameNoExt .. " -markers.csv"
+  local exportMarkerPath = "G:\\Data\\Dropbox\\ToDo\\music-readme\\markers\\" .. projectFileNameNoExt .. " -markers.csv"
  -- reaper.ShowMessageBox("Will export" .. exportMarkerPath, 0)
   
   -- Open the output file for writing
@@ -93,5 +79,4 @@ function main()
 end
 
 main()
-
 reaper.Undo_EndBlock("Export Marker to Music Readme", -1) -- End of the undo block
