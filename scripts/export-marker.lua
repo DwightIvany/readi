@@ -1,35 +1,22 @@
--- Define the output file path
-local outputFilePath = "C:\\markers.csv"
+--[[
+ * ReaScript Name: Export Marker to Music Readme
+ * Description: Likely only useful to Dwight
+ * Instructions: Run
+ * Author: Dwight Ivany
+ * Version: 0.9
+ * Date: 2024-09-30
 
--- Open the output file for writing
-local file = io.open(outputFilePath, "w")
-if not file then
-  reaper.ShowMessageBox("Error opening file for writing", "Error", 0)
-  return
+ * Changelog:
+ * v0.9 2024-09-30
+ ]]--
+
+-- Begin undo block
+reaper.Undo_BeginBlock()
+
+function Msg(value) -- ToDo dup
+  if console then
+    reaper.ShowConsoleMsg(tostring(value) .. "\n")
+  end
 end
 
--- Write the correct header row for Reaper's import format
-file:write("#,Name,Start,End,Length,Color\n")
-
--- Get the number of markers and regions in the project
-local retval, numMarkers, numRegions = reaper.CountProjectMarkers(0)
-
--- Loop through all markers and regions
-for i = 0, numMarkers + numRegions - 1 do
-  -- Get details for the current marker or region
-  local retval, isRegion, position, regionEnd, name, idx = reaper.EnumProjectMarkers(i)
-
-  -- If it's a region, calculate the length and include the end position
-  local startPos = position
-  local endPos = isRegion and regionEnd or ""
-  local length = isRegion and (regionEnd - position) or ""
-  
-  -- Write the marker/region data to the CSV file, omitting the color (not used in this case)
-  file:write(string.format("%d,%s,%.4f,%s,%s,\n", idx, name, startPos, endPos, length))
-end
-
--- Close the file
-file:close()
-
--- Confirm the export with a message
-reaper.ShowMessageBox("Markers and regions exported to C:\\markers.csv", "Export complete", 0)
+reaper.Undo_EndBlock("Export Marker to Music Readme", -1) -- End of the undo block
