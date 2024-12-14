@@ -1,8 +1,10 @@
 desc: Ditch Shifter
 //tags: processing pitch
 //author: Dwight Ivany
+//next steps hide slider 4, 5 & 6 after committing to a default after testing
+//add a delay
 
-slider1:7<0,100,1>Pitch Adjust (cents) // Pitch adjustment in cents
+slider1:7<0,20,1>Pitch Adjust (cents) // Pitch adjustment in cents
 slider4:50<0,200,1>Window Size (ms)
 slider5:20<0.05,50,0.5>Overlap Size (ms)
 slider6:1<0,1,1{No,Yes}>Filter
