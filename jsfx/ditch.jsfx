@@ -1,15 +1,13 @@
-desc: Ditch Shifter
+desc: Ditch Shifter (Simlified)
 //tags: processing pitch
-//author: Dwight Ivany
+//author: Cockos (Modified)
 
 slider1:0<-20,20,7>Pitch Adjust (cents)
 //slider2:0<-12,12,1>Pitch Adjust (st)
 //slider3:0<-12,12,1>Pitch Adjust (oct)
 slider4:50<0,200,1>Window Size (ms)
 slider5:20<0.05,50,0.5>Overlap Size (ms)
-slider6:0<-120,6,1>Wet Mix (dB)
-slider7:-120<-120,6,1>Dry Mix (dB)
-slider8:1<0,1,1{No,Yes}>Filter
+slider6:1<0,1,1{No,Yes}>Filter
 
 in_pin:left input
 in_pin:right input
@@ -30,7 +28,7 @@ out_pin:right output
   denorm=10^-20;
 
 @slider
-  filter=slider8>0.5;
+  filter=slider6>0.5;
   bsnew=(min(slider4,1000)*0.001*srate)|0;
   bsnew!=bufsize ? 
   (
@@ -57,8 +55,6 @@ out_pin:right output
     h01=h02=h03=h04=0;
     h11=h12=h13=h14=0;
   );
-  drymix = 2 ^ (slider7/6); 
-  wetmix = 2 ^ (slider6/6);
 
 @sample
   iv0=0|(v0); frac0=v0-iv0;
@@ -100,24 +96,22 @@ out_pin:right output
 
   ((v0+=vr) >= (bufloc0+bufsize)) ? v0 -= bufsize;
 
-  os0=spl0; os1=spl1;
   filter && pitch>1.0?
   (
-    t0=spl0; t1=spl1;
-    spl0=a1*spl0 + a2*h01 + a3*h02 - b1*h03 - b2*h04 + denorm;
-    spl1=a1*spl1 + a2*h11 + a3*h12 - b1*h13 - b2*h14 + denorm;
+    t0=ren0; t1=ren1;
+    ren0=a1*ren0 + a2*h01 + a3*h02 - b1*h03 - b2*h04 + denorm;
+    ren1=a1*ren1 + a2*h11 + a3*h12 - b1*h13 - b2*h14 + denorm;
     h02=h01; h01=t0;
     h12=h11; h11=t1;
-    h04=h03; h03=spl0;
-    h14=h13; h13=spl1;
+    h04=h03; h03=ren0;
+    h14=h13; h13=ren1;
   );
-
 
   buffer0[0] = spl0; // write after reading it to avoid clicks
   buffer0[bufdiff] = spl1;
 
-  spl0 = ren0 * wetmix;
-  spl1 = ren1 * wetmix;
+  spl0 = ren0; // 100% wet signal
+  spl1 = ren1;
 
   filter && pitch<1.0?
   (
@@ -129,8 +123,5 @@ out_pin:right output
     h04=h03; h03=spl0;
     h14=h13; h13=spl1;
   );
-
-  spl0+=os0*drymix;
-  spl1+=os1*drymix;
 
   ((buffer0+=1) >= (bufloc0 + bufsize)) ? buffer0 -= bufsize;
