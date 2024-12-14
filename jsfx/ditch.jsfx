@@ -1,8 +1,8 @@
-desc: Ditch Shifter (Simlified)
+desc: Ditch Shifter
 //tags: processing pitch
-//author: Cockos (Modified)
+//author: Dwight Ivany
 
-slider1:0<-20,20,7>Pitch Adjust (cents)
+slider1:7<-20,20,1>Pitch Adjust (cents)
 //slider2:0<-12,12,1>Pitch Adjust (st)
 //slider3:0<-12,12,1>Pitch Adjust (oct)
 slider4:50<0,200,1>Window Size (ms)
