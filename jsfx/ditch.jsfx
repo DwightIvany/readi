@@ -4,8 +4,7 @@ desc: Ditch Shifter
 //next steps hide slider 4, 5 & 6 after committing to a default after testing
 //add a delay
 
-slider1:7<0,20,1>Pitch Adjust (cents) // Pitch adjustment in cents
-slider4:50<0,200,1>Window Size (ms)
+slider1:7<-20,20,1>Pitch Adjust (cents) // Pitch adjustment in cents
 slider5:20<0.05,50,0.5>Overlap Size (ms)
 slider6:1<0,1,1{No,Yes}>Filter
 
@@ -15,7 +14,7 @@ out_pin:left output
 out_pin:right output
 
 @init
-  bufsize = srate|0;
+  bufsize = (50 * 0.001 * srate) | 0; // Hardcoded window size of 50 ms
   ext_tail_size = bufsize * 2;
   xfade = 100;
   bufloc0 = 10000;
@@ -32,13 +31,9 @@ out_pin:right output
 
 @slider
   filter = slider6 > 0.5;
-  bsnew = (min(slider4, 1000) * 0.001 * srate) | 0;
-  bsnew != bufsize ? (
-      bufsize = bsnew;
-  );
 
   xfade = (slider5 * 0.001 * srate) | 0;
-  xfade > bsnew * 0.5 ? xfade = bsnew * 0.5;
+  xfade > bufsize * 0.5 ? xfade = bufsize * 0.5;
 
   pitch_left = 2^((-slider1 * 0.01) / 12);
   pitch_right = 2^((slider1 * 0.01) / 12);
