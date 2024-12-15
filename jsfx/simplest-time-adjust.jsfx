@@ -1,6 +1,6 @@
-desc:Simplest Time Adjust
-//tags: delay
-//author: Dwight Ivany
+desc: Simplest Time Adjust
+tags: delay
+author: Dwight Ivany
 
 slider1:7<-1000,1000,1>Delay Amount (ms)
 
@@ -16,7 +16,7 @@ ext_tail_size = srate;
 @slider
 wet=2^(0/6);
 dry=2^(-120/6);
-delaylen = (slider2*srate*0.001)|0;
+delaylen = (slider1*srate*0.001)|0;
 delaylen<0?(
   pdc_delay=-delaylen;  
   pdc_top_ch=2;
