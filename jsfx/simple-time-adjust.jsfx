@@ -1,6 +1,7 @@
-desc:Simple Time Adjust
-//tags: delay
-//author: Dwight Ivany
+desc: Simple Time Adjust
+tags: delay
+author: Dwight Ivany (original source Cockos)
+//todo simplify slider 2,3 and set default
 
 slider1:7<-1000,1000,1>Delay Amount (ms)
 slider2:0<-120,12,1>Wet Mix (dB)
