@@ -2,7 +2,6 @@
 // Outputs mono
 // I have the word mono hidden to hide a pile of Waves bloat 
 desc: Mondi (Dwight)
-slider1:0<-100,6,1>Wet Mix (dB)
 
 @sample
 spl0 = spl1 = (spl0 + spl1) * 0.5;
