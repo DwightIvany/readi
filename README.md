@@ -92,3 +92,8 @@ Credit where credit is due: this is the work of Thomas Scott Stillwell (Stillwel
 Original source: https://github.com/stillwellaudio/jsfx/blob/master/1175
 
 See di76.md for a walkthrough of the compressor math and notes on the variables that silently default to zero.
+
+## di75
+The same compressor as di76, reduced to a sound-equivalent minimal implementation of the 1175. Same sliders, same sound (verified bit-identical output against di76 in simulation), but the dead code and no-op variables are gone: the vestigial peak tracker (`maxover`/`runmax`), the RMS scaffolding that collapsed to a plain peak detector (`rmscoef`/`runave`/square/sqrt), the never-enabled `softknee` and `autogain` hooks, the placeholder attack/release temps, and the redundant explicit zeroing in `@init`. I also inlined `grv`, `rpos`, and the attack/release coefficient math. Roughly half the code, identical audio.
+
+The math is documented in di76.md — everything there applies here, minus the removed no-ops.
