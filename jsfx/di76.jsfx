@@ -1,7 +1,6 @@
 // di76 - by Dwight Ivany
-// Sound-equivalent simplified code of the Stillwell 1175 compressor JSFX
-// by Thomas Scott Stillwell. Output is identical to di76/the 1175 normal
-// modes; dead code and no-op variables have been removed.
+// Based on the Stillwell 1175 compressor JSFX by Thomas Scott Stillwell.
+// Simplified like di75, minus the "All" ratio mode.
 // Original source: https://github.com/stillwellaudio/jsfx/blob/master/1175
 // The copyright notice, license conditions and disclaimer below are retained
 // verbatim from the original source (BSD license).
@@ -30,13 +29,13 @@
 //STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF 
 //THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-desc:di76 Compressor [sound-equivalent simplified 1175]
-desc:di76 FAST Attack Compressor with Program-Dependent Release
+desc:di76 Compressor [based on Stillwell 1175]
+desc:di76 FAST Attack Compressor
 //tags: dynamics compressor
 //author: Stillwell (original 1175), Dwight Ivany (di76)
 
 slider1:0<-60,0,0.1>Threshold (dB)
-slider2:0<0,4,1{4,8,12,20,All}>Ratio
+slider2:0<0,3,1{4,8,12,20}>Ratio
 slider3:0<-20,20,0.1>Gain (dB)
 slider4:20<20,2000,10>Attack (uS)
 slider5:250<20,1000,1>Release (mS)
@@ -49,8 +48,6 @@ out_pin:right output
 @init
   log2db = 8.6858896380650365530225783783321; // 20 / ln(10)
   db2log = 0.11512925464970228420089957273422; // ln(10) / 20
-  ratatcoef = exp(-1/(0.00001 * srate));
-  ratrelcoef = exp(-1/(0.5 * srate));
   gr_meter = 1;
   gr_meter_decay = exp(1/(1*srate));
 
@@ -58,35 +55,26 @@ out_pin:right output
   thresh = slider1;
   threshv = exp(thresh * db2log);
 
-  ratio = (slider2==0 ? 4 : (slider2==1 ? 8 : (slider2 == 2 ? 12 : (slider2 == 3 ? 20 : 20 ))));
-  allin = slider2 == 4;
+  ratio = (slider2==0 ? 4 : (slider2==1 ? 8 : (slider2 == 2 ? 12 : 20 )));
+  cratio = ratio;
+  cthresh = (softknee ? (thresh -3) : thresh);
+  cthreshv = exp(cthresh * db2log);
   makeup = slider3;
-  makeupv = exp(makeup * db2log);
+  makeupv = exp((makeup+autogain) * db2log);
   atcoef = exp(-1/((slider4/1000000) * srate));
   relcoef = exp(-1/((slider5/1000) * srate));
 
 @sample
   det = max(abs(spl0), abs(spl1));
 
-  overdb = max(0, log2db * log(det/threshv));
-
-  overdb - rundb > 5 ? (averatio = 4;);
+  overdb = max(0, log2db * log(det/cthreshv));
 
   overdb > rundb ? (
     rundb = overdb + atcoef * (rundb - overdb);
-    runratio = averatio + ratatcoef * (runratio - averatio);
   ) : (
     rundb = overdb + relcoef * (rundb - overdb);
-    runratio = averatio + ratrelcoef * (runratio - averatio);
   );
   overdb = rundb;
-  averatio = runratio;
-
-  allin ? (
-    cratio = 12 + averatio;
-  ) : (
-    cratio = ratio;
-  );
 
   grv = exp(-overdb * (cratio-1)/cratio * db2log);
 
