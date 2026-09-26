@@ -65,12 +65,9 @@ Typically I will disable or delete the plug-in when done (certainly before rende
 I use a keyboard shorcut, so that this is a two click process.
 
 ## dipass
-An extremely simple high pass filter, with a default cutoff of 100 Hz.
+An extremely simple high pass filter, with a default cutoff of 100 Hz. This is a first-order filter with a slope of 6dB per octave.
 
-My idea here is to have this as simple as the hardware buttons I have on mics and preamps. The slider only goes from 20 to 400 Hz, but that limit is just UI, enter the number if you need higher.
-
-I believe this is 12dB per octave but I have not tested or measured that.
-
+My idea is to have something as simple as the hardware switches I have on mics and preamps. The slider only goes from 20 to 400 Hz (that limit is just UX, and you can type a higher number, you desire).
 ## ditch
 A pitch shifter (100% wet) that adjusts pitch in cents (-50 to +50), with an overlap size control and an optional filter that compensates for the pitch shifting artifacts.
 
