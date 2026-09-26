@@ -42,3 +42,9 @@ luac.out
 # Python bytecode
 *.pyc
 __pycache__/
+
+# More Windows files
+desktop.ini
+.obsidian/
+.~lock.*#
+*.exe
