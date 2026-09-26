@@ -85,7 +85,7 @@ The same simple delay as above, but stripped down to a single delay amount slide
 ## di76
 A FAST attack compressor with program-dependent release, based on the Stillwell 1175 JSFX.
 
-The 1175 is modeled on the classic 1176 style FET compressor: ratios 4, 8, 12, 20 and All, with threshold, gain, attack (uS), release (mS) and mix controls, plus a gain reduction meter. I renamed it di76 and otherwise left it as is, because it already works and sounds great.
+The 1175 is modeled on the classic 1176 style FET compressor: ratios 4, 8, 12, 20 and All, with threshold, gain, attack (uS) and release (mS) controls, plus a gain reduction meter. I renamed it di76 and simplified it: I dropped the deprecated "Blown Capacitor" ratio modes and the mix slider, because I want this to be simple.
 
 Credit where credit is due: this is the work of Thomas Scott Stillwell (Stillwell Audio), originally released under the BSD license. The copyright notice, license conditions and disclaimer are retained verbatim at the top of jsfx/di76.jsfx, as the license requires.
 
