@@ -84,3 +84,14 @@ A simple delay plugin (original source Cockos) that delays the signal +/- 1000 m
 
 ## simplest-time-adjust
 The same simple delay as above, but stripped down to a single delay amount slider and 100% wet output.
+
+## di76
+A FAST attack compressor with program-dependent release, based on the Stillwell 1175 JSFX.
+
+The 1175 is modeled on the classic 1176 style FET compressor: ratios 4, 8, 12, 20 and All, with threshold, gain, attack (uS), release (mS) and mix controls, plus a gain reduction meter. I renamed it di76 and otherwise left it as is, because it already works and sounds great.
+
+Credit where credit is due: this is the work of Thomas Scott Stillwell (Stillwell Audio), originally released under the BSD license. The copyright notice, license conditions and disclaimer are retained verbatim at the top of jsfx/di76.jsfx, as the license requires.
+
+Original source: https://github.com/stillwellaudio/jsfx/blob/master/1175
+
+See di76.md for a walkthrough of the compressor math and notes on the variables that silently default to zero.
