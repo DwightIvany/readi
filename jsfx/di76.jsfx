@@ -34,7 +34,7 @@
 //THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 desc:di76 Compressor (Dwight) [sound-equivalent simplified 1175]
-desc:di76 FAST Attack Compressor with Program-Dependent Release
+desc:di76 FAST Attack Compressor
 //tags: dynamics compressor
 //author: Stillwell (original 1175), Dwight Ivany (di76)
 
@@ -46,7 +46,7 @@ slider5:0<-60,0,0.1>Threshold (dB)
 slider6:0<0,4,1{4,8,12,20,100}>Range
 slider7:0<0,1,1>-reserved
 slider8:0<0,1,1>-reserved
-slider9:0<0,4,1{4,8,12,20,All}>Ratio
+slider9:0<0,3,1{4,8,12,20}>Ratio
 slider10:0<0,1,1>-reserved
 slider11:0<0,1,1>-reserved
 slider12:0<0,1,1>-reserved
@@ -68,8 +68,6 @@ out_pin:right output
 @init
   log2db = 8.6858896380650365530225783783321; // 20 / ln(10)
   db2log = 0.11512925464970228420089957273422; // ln(10) / 20
-  ratatcoef = exp(-1/(0.00001 * srate));
-  ratrelcoef = exp(-1/(0.5 * srate));
   gr_meter = 1;
   gr_meter_decay = exp(1/(1*srate));
 
@@ -81,8 +79,7 @@ out_pin:right output
   thresh = slider5;
   threshv = exp(thresh * db2log);
 
-  ratio = (slider9==0 ? 4 : (slider9==1 ? 8 : (slider9 == 2 ? 12 : (slider9 == 3 ? 20 : 20 ))));
-  allin = slider9 == 4;
+  ratio = (slider9==0 ? 4 : (slider9==1 ? 8 : (slider9 == 2 ? 12 : 20 )));
   makeup = slider13;
   makeupv = exp(makeup * db2log);
   atcoef = exp(-1/((slider17/1000000) * srate));
@@ -102,25 +99,14 @@ out_pin:right output
 
   overdb = max(0, log2db * log(det/threshv));
 
-  overdb - rundb > 5 ? (averatio = 4;);
-
   overdb > rundb ? (
     rundb = overdb + atcoef * (rundb - overdb);
-    runratio = averatio + ratatcoef * (runratio - averatio);
   ) : (
     rundb = overdb + relcoef * (rundb - overdb);
-    runratio = averatio + ratrelcoef * (runratio - averatio);
   );
   overdb = rundb;
-  averatio = runratio;
 
-  allin ? (
-    cratio = 12 + averatio;
-  ) : (
-    cratio = ratio;
-  );
-
-  grv = exp(-overdb * (cratio-1)/cratio * db2log);
+  grv = exp(-overdb * (ratio-1)/ratio * db2log);
 
   grv < gr_meter ? gr_meter=grv : ( gr_meter*=gr_meter_decay; gr_meter>1?gr_meter=1; );
 
