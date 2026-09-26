@@ -2,8 +2,9 @@
 // Sound-equivalent simplified code of the Stillwell 1175 compressor JSFX
 // by Thomas Scott Stillwell. Output is identical to di76/the 1175 normal
 // modes; dead code and no-op variables have been removed.
-// Slider order is permanent: append new sliders at the end, never renumber
-// (REAPER saves slider values positionally, so renumbering breaks old sessions).
+// Slots 1,5,9,13,17,21 are the real controls; "-reserved" spacers between
+// them are expansion room - new sliders replace a spacer in place, never
+// renumber slots (REAPER saves slider values positionally).
 // Original source: https://github.com/stillwellaudio/jsfx/blob/master/1175
 // The copyright notice, license conditions and disclaimer below are retained
 // verbatim from the original source (BSD license).
@@ -38,11 +39,26 @@ desc:di76 FAST Attack Compressor with Program-Dependent Release
 //author: Stillwell (original 1175), Dwight Ivany (di76)
 
 slider1:0<0,400,20>High Pass (Hz, 0 = off)
-slider2:0<-60,0,0.1>Threshold (dB)
-slider3:0<0,4,1{4,8,12,20,All}>Ratio
-slider4:0<-20,20,0.1>Gain (dB)
-slider5:20<20,2000,10>Attack (uS)
-slider6:250<20,1000,1>Release (mS)
+slider2:0<0,1,1>-reserved
+slider3:0<0,1,1>-reserved
+slider4:0<0,1,1>-reserved
+slider5:0<-60,0,0.1>Threshold (dB)
+slider6:0<0,1,1>-reserved
+slider7:0<0,1,1>-reserved
+slider8:0<0,1,1>-reserved
+slider9:0<0,4,1{4,8,12,20,All}>Ratio
+slider10:0<0,1,1>-reserved
+slider11:0<0,1,1>-reserved
+slider12:0<0,1,1>-reserved
+slider13:0<-20,20,0.1>Gain (dB)
+slider14:0<0,1,1>-reserved
+slider15:0<0,1,1>-reserved
+slider16:0<0,1,1>-reserved
+slider17:20<20,2000,10>Attack (uS)
+slider18:0<0,1,1>-reserved
+slider19:0<0,1,1>-reserved
+slider20:0<0,1,1>-reserved
+slider21:250<20,1000,1>Release (mS)
 
 in_pin:left input
 in_pin:right input
@@ -62,15 +78,15 @@ out_pin:right output
   hpb1 = exp(-4*$pi * hpcutoff / srate);
   hpa0 = (hpb1 + 1) * 0.5;
 
-  thresh = slider2;
+  thresh = slider5;
   threshv = exp(thresh * db2log);
 
-  ratio = (slider3==0 ? 4 : (slider3==1 ? 8 : (slider3 == 2 ? 12 : (slider3 == 3 ? 20 : 20 ))));
-  allin = slider3 == 4;
-  makeup = slider4;
+  ratio = (slider9==0 ? 4 : (slider9==1 ? 8 : (slider9 == 2 ? 12 : (slider9 == 3 ? 20 : 20 ))));
+  allin = slider9 == 4;
+  makeup = slider13;
   makeupv = exp(makeup * db2log);
-  atcoef = exp(-1/((slider5/1000000) * srate));
-  relcoef = exp(-1/((slider6/1000) * srate));
+  atcoef = exp(-1/((slider17/1000000) * srate));
+  relcoef = exp(-1/((slider21/1000) * srate));
 
 @sample
   slider1 > 0 ? (
