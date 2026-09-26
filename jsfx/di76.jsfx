@@ -43,7 +43,7 @@ slider2:0<0,1,1>-reserved
 slider3:0<0,1,1>-reserved
 slider4:0<0,1,1>-reserved
 slider5:0<-60,0,0.1>Threshold (dB)
-slider6:0<0,1,1>-reserved
+slider6:0<0,4,1{4,8,12,20,100}>Range
 slider7:0<0,1,1>-reserved
 slider8:0<0,1,1>-reserved
 slider9:0<0,4,1{4,8,12,20,All}>Ratio
