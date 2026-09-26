@@ -52,8 +52,7 @@ I have done lots of null testing to prove this theory to myself. I am surprised 
 # Plugins
 
 ## 6dB
-
-A intentionally limited gain stage plugin that only does +/- 6dB.
+An intentionally limited gain stage plugin that only does +/- 6dB.
 
 Using the solo in front is a great mix technique, but sometimes I like to make one of the background items louder. So I find that I move a fader that is not in context of the entire mix.
 
@@ -65,5 +64,23 @@ Typically I will disable or delete the plug-in when done (certainly before rende
 
 I use a keyboard shorcut, so that this is a two click process.
 
-# mono
-There are just so many reasons I want a plugin that simply does mono and nothing else.
+## dipass
+An extremely simple high pass filter, with a default cutoff of 100 Hz.
+
+My idea here is to have this as simple as the hardware buttons I have on mics and preamps. The slider only goes from 20 to 400 Hz, but that limit is just UI, enter the number if you need higher.
+
+I believe this is 12dB per octave but I have not tested or measured that.
+
+## ditch
+A pitch shifter (100% wet) that adjusts pitch in cents (-50 to +50), with an overlap size control and an optional filter that compensates for the pitch shifting artifacts.
+
+## mondi
+There are just so many reasons I want a plugin that simply does mono and nothing else. This one just averages the left and right channels.
+
+I have the word mono hidden (hence "Mondi") to hide a pile of Waves bloat.
+
+## simple-time-adjust
+A simple delay plugin (original source Cockos) that delays the signal +/- 1000 ms, with separate wet and dry mix sliders. A negative delay advances the timing using plugin delay compensation (PDC).
+
+## simplest-time-adjust
+The same simple delay as above, but stripped down to a single delay amount slider and 100% wet output.
