@@ -7,7 +7,7 @@
 // Solution: have a simple plug-in that only does +/- 6dB
 // Typically I will disable or delete the plug-in when done (certainly before render)
 
-desc: 6dB Gain
+desc: 6dB Gain (Dwight)
 
 slider1:0<0,1,1{+6dB,-6dB}>Gain
 

@@ -6,7 +6,7 @@
 // Measured: this is a first-order filter, 6dB per octave
 // (b1 = exp(-4*$pi * cutoff / srate) puts the -3dB corner one octave above the slider value)
 
-desc: Dipass (DI High Pass)
+desc: Dipass (Dwight) (DI High Pass)
 
 slider1: 100<20,400,20>Cutoff Frequency (Hz)
 
