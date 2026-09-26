@@ -2,6 +2,8 @@
 // Sound-equivalent simplified code of the Stillwell 1175 compressor JSFX
 // by Thomas Scott Stillwell. Output is identical to di76/the 1175 normal
 // modes; dead code and no-op variables have been removed.
+// Slider order is permanent: append new sliders at the end, never renumber
+// (REAPER saves slider values positionally, so renumbering breaks old sessions).
 // Original source: https://github.com/stillwellaudio/jsfx/blob/master/1175
 // The copyright notice, license conditions and disclaimer below are retained
 // verbatim from the original source (BSD license).
