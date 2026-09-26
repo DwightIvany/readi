@@ -4,7 +4,7 @@ READI (as in ReaperDI) is a repo for Reaper Scripts and plugins that Dwight Ivan
 # SCRIPTS
 
 ## duplicate-src
-I often find it useful to commit audio tracks; however, it is nice to have a copy that is unheard and unseen in the project that could be used, if I want to go back. Similar to an archive.
+I often find it useful to commit audio tracks; however, it is nice to have a copy that is unheard and unseen in the project that could be used, if I want to go back. Similar to an archve.
 
 My workflow has been to duplicate, and then render one of the duplicates.
 This script 
@@ -83,9 +83,9 @@ A simple delay plugin (original source Cockos) that delays the signal +/- 1000 m
 The same simple delay as above, but stripped down to a single delay amount slider and 100% wet output.
 
 ## di76
-A FAST attack compressor based on the Stillwell 1175 JSFX.
+A FAST attack compressor with program-dependent release, based on the Stillwell 1175 JSFX.
 
-The 1175 is modeled on the classic 1176 style FET compressor: ratios 4, 8, 12, 20 and All, with threshold, gain, attack (uS) and release (mS) controls, plus a gain reduction meter. I renamed it di76 and simplified it: I dropped the deprecated "Blown Capacitor" ratio modes, the "All" ratio, and the mix slider, because I want this to be simple. I then put a simple high-pass filter — straight from my dipass plugin — in front as the first slider, so the chain is a simple high-pass before a simple fast compressor. 0 = off.
+The 1175 is modeled on the classic 1176 style FET compressor: ratios 4, 8, 12, 20 and All, with threshold, gain, attack (uS) and release (mS) controls, plus a gain reduction meter. I renamed it di76 and simplified it: I dropped the deprecated "Blown Capacitor" ratio modes and the mix slider, because I want this to be simple.
 
 Credit where credit is due: this is the work of Thomas Scott Stillwell (Stillwell Audio), originally released under the BSD license. The copyright notice, license conditions and disclaimer are retained verbatim at the top of jsfx/di76.jsfx, as the license requires.
 
@@ -94,6 +94,6 @@ Original source: https://github.com/stillwellaudio/jsfx/blob/master/1175
 See di76.md for a walkthrough of the compressor math and notes on the variables that silently default to zero.
 
 ## di75
-The sound-equivalent minimal implementation of the 1175: the same simplified compressor that di76 is built on, but without di76's high-pass filter, and with the "All" ratio mode (and its program-dependent ratio follower) kept. Verified bit-identical to the unsimplified 1175 code in simulation. The dead code and no-op variables are gone: the vestigial peak tracker (`maxover`/`runmax`), the RMS scaffolding that collapsed to a plain peak detector (`rmscoef`/`runave`/square/sqrt), the never-enabled `softknee` and `autogain` hooks, the placeholder attack/release temps, and the redundant explicit zeroing in `@init`. I also inlined `grv`, `rpos`, and the attack/release coefficient math. Roughly half the code, identical audio.
+The same compressor as di76, reduced to a sound-equivalent minimal implementation of the 1175. Same sliders, same sound (verified bit-identical output against di76 in simulation), but the dead code and no-op variables are gone: the vestigial peak tracker (`maxover`/`runmax`), the RMS scaffolding that collapsed to a plain peak detector (`rmscoef`/`runave`/square/sqrt), the never-enabled `softknee` and `autogain` hooks, the placeholder attack/release temps, and the redundant explicit zeroing in `@init`. I also inlined `grv`, `rpos`, and the attack/release coefficient math. Roughly half the code, identical audio.
 
-The math is documented in di76.md, with the parts that exist only in di75 (the "All" ratio follower) marked as such.
+The math is documented in di76.md — everything there applies here, minus the removed no-ops.
