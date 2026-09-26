@@ -43,10 +43,10 @@ slider2:0<0,1,1>-reserved
 slider3:0<0,1,1>-reserved
 slider4:0<0,1,1>-reserved
 slider5:0<-60,0,0.1>Threshold (dB)
-slider6:0<0,4,1{4,8,12,20,100}>Range
+slider6:0<0,1,1>-reserved
 slider7:0<0,1,1>-reserved
 slider8:0<0,1,1>-reserved
-slider9:0<0,3,1{4,8,12,20}>Ratio
+slider9:4<4,100,1>Ratio
 slider10:0<0,1,1>-reserved
 slider11:0<0,1,1>-reserved
 slider12:0<0,1,1>-reserved
@@ -79,7 +79,8 @@ out_pin:right output
   thresh = slider5;
   threshv = exp(thresh * db2log);
 
-  ratio = (slider9==0 ? 4 : (slider9==1 ? 8 : (slider9 == 2 ? 12 : 20 )));
+  ratio = slider9 < 6 ? 4 : slider9 < 10 ? 8 : slider9 < 16 ? 12 : slider9 < 60 ? 20 : 100;
+  slider9 = ratio;
   makeup = slider13;
   makeupv = exp(makeup * db2log);
   atcoef = exp(-1/((slider17/1000000) * srate));
