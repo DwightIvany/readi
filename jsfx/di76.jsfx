@@ -35,11 +35,12 @@ desc:di76 FAST Attack Compressor with Program-Dependent Release
 //tags: dynamics compressor
 //author: Stillwell (original 1175), Dwight Ivany (di76)
 
-slider1:0<-60,0,0.1>Threshold (dB)
-slider2:0<0,4,1{4,8,12,20,All}>Ratio
-slider3:0<-20,20,0.1>Gain (dB)
-slider4:20<20,2000,10>Attack (uS)
-slider5:250<20,1000,1>Release (mS)
+slider1:0<0,400,20>High Pass (Hz, 0 = off)
+slider2:0<-60,0,0.1>Threshold (dB)
+slider3:0<0,4,1{4,8,12,20,All}>Ratio
+slider4:0<-20,20,0.1>Gain (dB)
+slider5:20<20,2000,10>Attack (uS)
+slider6:250<20,1000,1>Release (mS)
 
 in_pin:left input
 in_pin:right input
@@ -55,17 +56,30 @@ out_pin:right output
   gr_meter_decay = exp(1/(1*srate));
 
 @slider
-  thresh = slider1;
+  hpcutoff = slider1;
+  hpb1 = exp(-4*$pi * hpcutoff / srate);
+  hpa0 = (hpb1 + 1) * 0.5;
+
+  thresh = slider2;
   threshv = exp(thresh * db2log);
 
-  ratio = (slider2==0 ? 4 : (slider2==1 ? 8 : (slider2 == 2 ? 12 : (slider2 == 3 ? 20 : 20 ))));
-  allin = slider2 == 4;
-  makeup = slider3;
+  ratio = (slider3==0 ? 4 : (slider3==1 ? 8 : (slider3 == 2 ? 12 : (slider3 == 3 ? 20 : 20 ))));
+  allin = slider3 == 4;
+  makeup = slider4;
   makeupv = exp(makeup * db2log);
-  atcoef = exp(-1/((slider4/1000000) * srate));
-  relcoef = exp(-1/((slider5/1000) * srate));
+  atcoef = exp(-1/((slider5/1000000) * srate));
+  relcoef = exp(-1/((slider6/1000) * srate));
 
 @sample
+  slider1 > 0 ? (
+    hp0 = (spl0 - old_spl0) * hpa0 + hp0 * hpb1;
+    hp1 = (spl1 - old_spl1) * hpa0 + hp1 * hpb1;
+    old_spl0 = spl0;
+    old_spl1 = spl1;
+    spl0 = hp0;
+    spl1 = hp1;
+  );
+
   det = max(abs(spl0), abs(spl1));
 
   overdb = max(0, log2db * log(det/threshv));
