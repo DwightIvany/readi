@@ -1,0 +1,307 @@
+// di76-tuk - by Dwight Ivany
+// di76 with a TUKAN "GUI 1 White" interface built on the tk_gui_tools library.
+// The audio code and the slider block are identical to di76.jsfx (same DSP,
+// same slots 1,5,9,13,17,21 with "-reserved" spacers), so saved sessions and
+// slider values are interchangeable between di76 and di76-tuk.
+// GUI library: tk_gui_tools.jsfx-inc by Tukan_Studios - "free as in free
+// beer", may be used, modified and shared for JSFX plugins; parts of the
+// VU-meter code with friendly permission from ZenoMOD (chris-s, ZenoMOD).
+//   https://stash.reaper.fm/v/53055/tk-gui-tools.zip
+// The GUI 1 layout and white skin values are adapted from the "Blue One
+// Compressor BL-1C" example (MIT License, Copyright (c) 2026 JClones / Tukan):
+//   https://github.com/TukanStudios/TUKAN_STUDIOS_PLUGINS
+// GUI 1 draws everything from code - no PNG image files are needed.
+// DSP origin/credits: see di76.jsfx (Stillwell 1175, BSD, retained below).
+
+// Copyright 2006, Thomas Scott Stillwell
+// All rights reserved.
+//
+//Redistribution and use in source and binary forms, with or without modification, are permitted 
+//provided that the following conditions are met:
+//
+//Redistributions of source code must retain the above copyright notice, this list of conditions 
+//and the following disclaimer. 
+//
+//Redistributions in binary form must reproduce the above copyright notice, this list of conditions 
+//and the following disclaimer in the documentation and/or other materials provided with the distribution. 
+//
+//The name of Thomas Scott Stillwell may not be used to endorse or 
+//promote products derived from this software without specific prior written permission. 
+//
+//THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR 
+//IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND 
+//FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS 
+//BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES 
+//(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR 
+//PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, 
+//STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF 
+//THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+desc:di76-tuk Compressor (Dwight) [di76 with TUKAN GUI 1 White]
+desc:di76-tuk FAST Attack Compressor
+//tags: dynamics compressor
+//author: Stillwell (original 1175), Dwight Ivany (di76/di76-tuk), Tukan_Studios (GUI library), JClones (BL-1C layout reference)
+
+slider1:0<0,400,20>High Pass (Hz, 0 = off)
+slider2:0<0,1,1>-reserved
+slider3:0<0,1,1>-reserved
+slider4:0<0,1,1>-reserved
+slider5:0<-60,0,0.1>Threshold (dB)
+slider6:0<0,1,1>-reserved
+slider7:0<0,1,1>-reserved
+slider8:0<0,1,1>-reserved
+slider9:4<4,20,1>Ratio
+slider10:0<0,1,1>-reserved
+slider11:0<0,1,1>-reserved
+slider12:0<0,1,1>-reserved
+slider13:0<-20,20,0.1>Gain (dB)
+slider14:0<0,1,1>-reserved
+slider15:0<0,1,1>-reserved
+slider16:0<0,1,1>-reserved
+slider17:20<20,2000,10>Attack (uS)
+slider18:0<0,1,1>-reserved
+slider19:0<0,1,1>-reserved
+slider20:0<0,1,1>-reserved
+slider21:250<20,1000,1>Release (mS)
+
+in_pin:left input
+in_pin:right input
+out_pin:left output
+out_pin:right output
+
+import tk_gui_tools.jsfx-inc
+
+@init
+  gfx_ext_retina=1;
+
+  log2db = 8.6858896380650365530225783783321; // 20 / ln(10)
+  db2log = 0.11512925464970228420089957273422; // ln(10) / 20
+
+  Left_In.reset_meter();
+  Right_In.reset_meter();
+  Left_Out.reset_meter();
+  Right_Out.reset_meter();
+  reduct.reset_gr_meter();
+
+  // The tk_gui_tools library pattern: coefficient calculation lives here
+  // (what @slider would normally do). @slider only sets a flag and @block
+  // runs this function, so both slider moves and knob moves end up here.
+  function slidercode() (
+    hpcutoff = slider1;
+    hpb1 = exp(-4*$pi * hpcutoff / srate);
+    hpa0 = (hpb1 + 1) * 0.5;
+
+    thresh = slider5;
+    threshv = exp(thresh * db2log);
+
+    ratio = slider9 < 6 ? 4 : slider9 < 10 ? 8 : slider9 < 16 ? 12 : 20;
+    slider9 = ratio;
+    makeup = slider13;
+    makeupv = exp(makeup * db2log);
+    atcoef = exp(-1/((slider17/1000000) * srate));
+    relcoef = exp(-1/((slider21/1000) * srate));
+  );
+
+@slider
+
+  flag_run_slidercode = 1;
+
+@block
+
+  flag_run_slidercode ? (
+     flag_run_slidercode = 0;
+     slidercode();
+  );
+
+@sample
+  // input meters (pure analysis, does not touch the audio)
+  Left_In.feed_meter(spl0, -40);
+  Right_In.feed_meter(spl1, -40);
+
+  // high-pass filter, first in the audio path; 0 = off (bit-transparent)
+  slider1 > 0 ? (
+    hp0 = (spl0 - old_spl0) * hpa0 + hp0 * hpb1;
+    hp1 = (spl1 - old_spl1) * hpa0 + hp1 * hpb1;
+    old_spl0 = spl0;
+    old_spl1 = spl1;
+    spl0 = hp0;
+    spl1 = hp1;
+  );
+
+  det = max(abs(spl0), abs(spl1));
+
+  overdb = max(0, log2db * log(det/threshv));
+
+  overdb > rundb ? (
+    rundb = overdb + atcoef * (rundb - overdb);
+  ) : (
+    rundb = overdb + relcoef * (rundb - overdb);
+  );
+  overdb = rundb;
+
+  grv = exp(-overdb * (ratio-1)/ratio * db2log);
+
+  spl0 *= grv * makeupv;
+  spl1 *= grv * makeupv;
+
+  // output and gain-reduction meters (pure analysis)
+  Left_Out.feed_meter(spl0, -60);
+  Right_Out.feed_meter(spl1, -60);
+  reduct.feed_gr_meter(grv, 20);
+
+  // peak-hold reset about 3 times per second
+  reset_cnt += 1;
+  reset_cnt >= srate/3 ? (
+    reduct.reset_gr_meter_min();
+    Left_In.reset_meter_max();
+    Right_In.reset_meter_max();
+    Left_Out.reset_meter_max();
+    Right_Out.reset_meter_max();
+    reset_cnt = 0;
+  );
+
+@gfx 934 323
+
+start_gfx(934,323,300); // canvas size from @gfx, 300 = mouse sensitivity
+
+// GUI 1 White skin (skin 2 "Greys" of the BL-1C GUI 1 family)
+or=0; og=0; ob=0;               // knob outline
+ir=250; ig=250; ib=250; ia=255; // knob infill (white)
+lr=0; lg=0; lb=0;               // label text
+bgr=220; bgg=220; bgb=220;      // background
+
+rgb(bgr,bgg,bgb);
+gfx_rect(0,0,gfx_w,gfx_h);
+
+// knob layout: x, y, size, slider, min, max, default
+HighPass.knob_config(130,55,55,1,0,400,0);
+Threshold.knob_config(265,55,55,5,-60,0,0);
+Ratio.knob_config(400,55,55,9,4,20,4);
+Attack.knob_config(130,205,55,17,20,2000,20);
+Release.knob_config(265,205,55,21,20,1000,250);
+Gain.knob_config(400,205,55,13,-20,20,0);
+
+HighPass.knob_many_labels(3);   // 0, 200, 400
+Threshold.knob_many_labels(7);  // -60 .. 0
+Ratio.knob_many_labels(5);      // 4, 8, 12, 16, 20
+Attack.knob_many_labels(3);     // 20, 1010, 2000
+Release.knob_many_labels(3);    // 20, 510, 1000
+Gain.knob_many_labels(5);       // -20 .. 20
+
+HighPass.knob_outline(or,og,ob);
+Threshold.knob_outline(or,og,ob);
+Ratio.knob_outline(or,og,ob);
+Attack.knob_outline(or,og,ob);
+Release.knob_outline(or,og,ob);
+Gain.knob_outline(or,og,ob);
+
+HighPass.knob_infill(ir,ig,ib,ia);
+Threshold.knob_infill(ir,ig,ib,ia);
+Ratio.knob_infill(ir,ig,ib,ia);
+Attack.knob_infill(ir,ig,ib,ia);
+Release.knob_infill(ir,ig,ib,ia);
+Gain.knob_infill(ir,ig,ib,ia);
+
+fontsize(13);
+
+HighPass.knob();
+fontsize(12);
+HighPass.knob_label_all_dots(1.3,1.3);
+HighPass.knob_all_labels(1.5,0);
+fontsize(15);
+HighPass.knob_value(0,1.7,0);
+#TK_gfxlib_Label = "HIGH PASS";
+HighPass.knob_label(-1,2.1);
+
+Threshold.knob();
+fontsize(12);
+Threshold.knob_label_all_dots(1.3,1.3);
+Threshold.knob_all_labels(1.5,0);
+fontsize(15);
+Threshold.knob_value(0,1.7,1);
+#TK_gfxlib_Label = "THRESHOLD";
+Threshold.knob_label(-1,2.1);
+
+Ratio.knob();
+fontsize(12);
+Ratio.knob_label_all_dots(1.3,1.3);
+Ratio.knob_all_labels(1.5,0);
+fontsize(15);
+Ratio.knob_value(0,1.7,0);
+#TK_gfxlib_Label = "RATIO";
+Ratio.knob_label(-1,2.1);
+
+Attack.knob();
+fontsize(12);
+Attack.knob_label_all_dots(1.3,1.3);
+Attack.knob_all_labels(1.5,0);
+fontsize(15);
+Attack.knob_value(0,1.7,0);
+#TK_gfxlib_Label = "ATTACK uS";
+Attack.knob_label(-1,2.1);
+
+Release.knob();
+fontsize(12);
+Release.knob_label_all_dots(1.3,1.3);
+Release.knob_all_labels(1.5,0);
+fontsize(15);
+Release.knob_value(0,1.7,0);
+#TK_gfxlib_Label = "RELEASE mS";
+Release.knob_label(-1,2.1);
+
+Gain.knob();
+fontsize(12);
+Gain.knob_label_all_dots(1.3,1.3);
+Gain.knob_all_labels(1.5,0);
+fontsize(15);
+Gain.knob_value(0,1.7,1);
+#TK_gfxlib_Label = "GAIN";
+Gain.knob_label(-1,2.1);
+
+// title block
+fontsize(16);
+rgb(lr,lg,lb);
+set_xy(20,60);
+gfx_drawstr("DI76-TUK");
+set_xy(20,90);
+gfx_drawstr("COMPRESSOR");
+
+// meters: input L/R, gain reduction, output L/R
+mmx=560; mmy=50; mmh=250; mmw=25;
+mmin=-60; mmax=6; mstep=6;
+fontsize(12);
+rgb(or,og,ob);
+draw_vertical_scale(mmx,mmy,mmw*2.5,mmh,mmin,mmax,mstep);
+draw_vertical_scale(mmx+4.25*mmw,mmy,mmw,mmh,-20,0,2);
+draw_vertical_scale(mmx+7*mmw,mmy,mmw*2.5,mmh,mmin,mmax,mstep);
+
+gfx_a=0.8;
+rgb(150,150,150); // vu body (white skin value)
+Left_In.draw_vertical_meter(mmx,mmy,mmw,mmh,mmin,mmax,1,0);
+Right_In.draw_vertical_meter(mmx+1.5*mmw,mmy,mmw,mmh,mmin,mmax,1,0);
+reduct.draw_vertical_GR_meter(mmx+4.25*mmw,mmy,mmw,mmh,-20,0,1,0);
+Left_Out.draw_vertical_meter(mmx+7*mmw,mmy,mmw,mmh,mmin,mmax,1,0);
+Right_Out.draw_vertical_meter(mmx+8.5*mmw,mmy,mmw,mmh,mmin,mmax,1,0);
+
+rgb(0,0,0); // peak-hold line (white skin Peak + peak_line values)
+gfx_a=1;
+Left_In.draw_vertical_meter(mmx,mmy,mmw,mmh,mmin,mmax,0,10);
+Right_In.draw_vertical_meter(mmx+1.5*mmw,mmy,mmw,mmh,mmin,mmax,0,10);
+reduct.draw_vertical_GR_meter(mmx+4.25*mmw,mmy,mmw,mmh,-20,0,0,10);
+Left_Out.draw_vertical_meter(mmx+7*mmw,mmy,mmw,mmh,mmin,mmax,0,10);
+Right_Out.draw_vertical_meter(mmx+8.5*mmw,mmy,mmw,mmh,mmin,mmax,0,10);
+
+rgb(or,og,ob);
+draw_vertical_scale_labels(mmx,mmy,mmw*2.5,mmh,mmin,mmax,mstep);
+draw_vertical_scale_labels(mmx+4.25*mmw,mmy,mmw,mmh,-20,0,2);
+draw_vertical_scale_labels(mmx+7*mmw,mmy,mmw*2.5,mmh,mmin,mmax,mstep);
+
+// meter captions
+fontsize(13);
+rgb(lr,lg,lb);
+set_xy(572,306);
+gfx_drawstr("INPUT");
+set_xy(652,306);
+gfx_drawstr("REDUCT");
+set_xy(742,306);
+gfx_drawstr("OUTPUT");

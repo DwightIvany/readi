@@ -97,3 +97,8 @@ See di76.md for a walkthrough of the compressor math and notes on the variables 
 The same compressor as di76, reduced to a sound-equivalent minimal implementation of the 1175. Same sliders, same sound (verified bit-identical output against di76 in simulation), but the dead code and no-op variables are gone: the vestigial peak tracker (`maxover`/`runmax`), the RMS scaffolding that collapsed to a plain peak detector (`rmscoef`/`runave`/square/sqrt), the never-enabled `softknee` and `autogain` hooks, the placeholder attack/release temps, and the redundant explicit zeroing in `@init`. I also inlined `grv`, `rpos`, and the attack/release coefficient math. Roughly half the code, identical audio.
 
 The math is documented in di76.md — everything there applies here, minus the removed no-ops.
+
+## di76-tuk
+di76 with a fancy face: the same compressor and the same sliders, but a "GUI 1 White" interface drawn with the tk_gui_tools library by Tukan_Studios instead of the plain gain-reduction bar. It has knobs for all six controls plus input/gain-reduction/output meters. Because the slider block is identical to di76, saved sessions swap between the two.
+
+The GUI code is the tk_gui_tools.jsfx-inc include file (vendored next to the plugin in jsfx/ — keep the two files together, REAPER resolves the import relative to the plugin). The library is "free as in free beer" for JSFX plugins, with parts of the VU meter code used with friendly permission from ZenoMOD. The white layout is adapted from Tukan's "Blue One Compressor BL-1C" example (MIT). GUI 1 draws everything from code, so no image files are needed. DSP credit is the same as di76: Thomas Scott Stillwell, BSD.
