@@ -71,6 +71,8 @@ out_pin:right output
 
 import tk_gui_tools.jsfx-inc
 
+options: no_meter // tell REAPER to not draw its I/O meter strips on the window edges
+
 @init
   gfx_ext_retina=1;
 
@@ -163,6 +165,18 @@ import tk_gui_tools.jsfx-inc
 @gfx 934 323
 
 start_gfx(934,323,300); // canvas size from @gfx, 300 = mouse sensitivity
+
+// hide the native slider panel - the knob GUI is the only UI
+// (values are still saved and automatable; slider positions unchanged)
+// NOTE: slider_show() takes the slider VARIABLE (or a 2^(n-1) bitmask), not a
+// plain slider number - a literal like 9 is read as bitmask bits, not slider 9.
+slider_show(slider1,0);  slider_show(slider2,0);  slider_show(slider3,0);
+slider_show(slider4,0);  slider_show(slider5,0);  slider_show(slider6,0);
+slider_show(slider7,0);  slider_show(slider8,0);  slider_show(slider9,0);
+slider_show(slider10,0); slider_show(slider11,0); slider_show(slider12,0);
+slider_show(slider13,0); slider_show(slider14,0); slider_show(slider15,0);
+slider_show(slider16,0); slider_show(slider17,0); slider_show(slider18,0);
+slider_show(slider19,0); slider_show(slider20,0); slider_show(slider21,0);
 
 // GUI 1 White skin (skin 2 "Greys" of the BL-1C GUI 1 family)
 or=0; og=0; ob=0;               // knob outline
