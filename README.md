@@ -98,6 +98,11 @@ The same compressor as di76, reduced to a sound-equivalent minimal implementatio
 
 The math is documented in di76.md — everything there applies here, minus the removed no-ops.
 
+## di76-png
+di76 with the other TUKAN face: the "Classic" PNG-based GUI from the same library (the blue faceplate look of Tukan's BL-1C example). Framed knob images (HexKnob.png), a needle VU wired permanently to gain reduction, glow/shadow-dressed dial. Same sliders, same sound, same session values as di76/di76-tuk.
+
+Like di76-tuk, the native slider panel is hidden and the edge meters are off. This one needs four PNG files next to the plugin in jsfx/ (all from the library zip): HexKnob.png, Transtparent_Black_VU.png, VU_Shadow.png, Glow_VU.png - plus tk_gui_tools.jsfx-inc. Credits: Tukan_Studios library and artwork, ZenoMOD for the VU code, JClones/Tukan BL-1C layout (MIT), Stillwell DSP (BSD).
+
 ## di76-tuk
 di76 with a fancy face: the same compressor and the same sliders, but a "GUI 1 White" interface drawn with the tk_gui_tools library by Tukan_Studios instead of the plain gain-reduction bar. It has knobs for all six controls plus input/gain-reduction/output meters. Because the slider block is identical to di76, saved sessions swap between the two.
 
