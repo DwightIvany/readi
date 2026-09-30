@@ -557,18 +557,15 @@ gui_mode == 0 ? (
   fontsize(19);
   set_xy(730,120);
   gfx_drawstr("GR");
-  // mono switch: BL-1C-style plastic switch image over the VU
-  mono.button_outline(2,100,250,100,80,80,80);
-  mono.button_infill(0,100,0,30,30,30);
-  gfx_a = 0;
-  mono.button();
-  gfx_a = 1;
-  set_xy(mono.x-8,mono.y-8);
-  gfx_blit(4,1.25*60/200*TK_GUI_Scaling,0,0,200*!slider23,200,200);
-  slider23 ? sprintf(#TK_gfxlib_Label,"Mono") : sprintf(#TK_gfxlib_Label,"Stereo");
-  set_xy(mono.x-4,mono.y+66);
+  // mono switch: plastic switch image over the VU; "Stereo" above and "Mono"
+  // below bracket the toggle so it reads as where the switch points
+  mono.button_png(4,200,200,0.3);
+  fontsize(12);
   bisque(1);
-  gfx_drawstr(#TK_gfxlib_Label);
+  set_xy(mono.x-4,mono.y-16);
+  gfx_drawstr("Stereo");
+  set_xy(mono.x-4,mono.y+66);
+  gfx_drawstr("Mono");
 ) : (
   mmx=520; mmy=35; mmh=230; mmw=25;
   fontsize(12);
@@ -593,12 +590,19 @@ gui_mode == 0 ? (
   draw_vertical_scale_labels(mmx,mmy,mmw*2.5,mmh,-60,6,6);
   draw_vertical_scale_labels(mmx+4.25*mmw,mmy,mmw,mmh,-20,0,2);
   draw_vertical_scale_labels(mmx+7*mmw,mmy,mmw*2.5,mmh,-60,6,6);
-  // mono switch: plain white-skin button labelled Stereo/Mono
+  // mono switch: plain white-skin button; the active setting's word is
+  // inside the button, "Stereo" above and "Mono" below bracket the toggle
   mono.button_outline(3,0,0,0,170,170,170);
   mono.button_infill(250,250,250,190,190,190);
   mono.button();
+  rgb(0,0,0); // button() leaves the color at its fill colors - set label color
   slider23 ? sprintf(#TK_gfxlib_Label,"Mono") : sprintf(#TK_gfxlib_Label,"Stereo");
   mono.button_label(5,0,0);
+  fontsize(12);
+  set_xy(mono.x-4,mono.y-16);
+  gfx_drawstr("Stereo");
+  set_xy(mono.x-4,mono.y+66);
+  gfx_drawstr("Mono");
   fontsize(13);
   rgb(0,0,0);
   set_xy(536,272);
