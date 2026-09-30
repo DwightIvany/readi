@@ -2,9 +2,11 @@
 // di76 with the TUKAN "Classic" interface - the PNG-based GUI of the
 // tk_gui_tools library (GUI mode 0 of the BL-1C sample): framed knob images,
 // a ZenoMOD-style needle VU for gain reduction, blue faceplate.
-// The audio code and the slider block are identical to di76.jsfx (same DSP,
-// same slots 1,5,9,13,17,21 with "-reserved" spacers), so saved sessions and
-// slider values are interchangeable between di76, di76-tuk and di76-png.
+// The audio code and the slider block (slots 1,5,9,13,17,21 with "-reserved"
+// spacers) are identical to di76.jsfx, so saved sessions and slider values
+// stay interchangeable between di76, di76-tuk and di76-png. Deliberate
+// differences here: ratio is continuous (no snapping), and the defaults are
+// high pass 80 Hz (filter active on new instances) and threshold -12 dB.
 // GUI library: tk_gui_tools.jsfx-inc by Tukan_Studios - "free as in free
 // beer", may be used, modified and shared for JSFX plugins; parts of the
 // VU-meter code with friendly permission from ZenoMOD (chris-s, ZenoMOD).
@@ -46,11 +48,11 @@ desc:di76-png FAST Attack Compressor
 //tags: dynamics compressor
 //author: Stillwell (original 1175), Dwight Ivany (di76/di76-png), Tukan_Studios (GUI library + art), JClones (BL-1C layout reference)
 
-slider1:0<0,400,20>High Pass (Hz, 0 = off)
+slider1:80<0,400,20>High Pass (Hz, 0 = off)
 slider2:0<0,1,1>-reserved
 slider3:0<0,1,1>-reserved
 slider4:0<0,1,1>-reserved
-slider5:0<-60,0,0.1>Threshold (dB)
+slider5:-12<-60,0,0.1>Threshold (dB)
 slider6:0<0,1,1>-reserved
 slider7:0<0,1,1>-reserved
 slider8:0<0,1,1>-reserved
@@ -173,8 +175,8 @@ gfx_rect(0,0,gfx_w,gfx_h);
 
 // knob layout: x, y, size, slider, min, max, default
 // two rows of three; gain sits under ratio, no title text on the left
-HighPass.knob_config(30,40,80,1,0,400,0);
-Threshold.knob_config(200,40,80,5,-60,0,0);
+HighPass.knob_config(30,40,80,1,0,400,80);
+Threshold.knob_config(200,40,80,5,-60,0,-12);
 Ratio.knob_config(370,40,80,9,4,20,4);
 Attack.knob_config(30,185,80,17,20,2000,20);
 Release.knob_config(200,185,80,21,20,1000,250);
