@@ -11,13 +11,18 @@
 // Escape cancels). Editing follows Geraint Luff's ui-lib textbox pattern
 // (cursor + selection, rebuild-based string edits). Gain accepts decimals;
 // the other knobs accept integers only.
+// A mono/stereo switch (slider 23, default Stereo) sits on the VU in PNG
+// mode (PlasticSwitch.png) and as a plain button in White mode. Mono engages
+// the exact mondi.jsfx logic - spl0 = spl1 = (spl0+spl1)*0.5 after the
+// makeup gain - and is fully out of the signal path when Stereo.
 // The audio code and the slider block (slots 1,5,9,13,17,21 = DSP controls,
-// slot 22 = GUI mode, "-reserved" spacers between) are identical to
-// di76.jsfx, so saved sessions and slider values stay interchangeable
-// between di76, di76-tuk and di76-png (sessions saved before slot 22 existed
-// load it as 0 = PNG classic). Deliberate differences here: ratio is
-// continuous (no snapping), and the defaults are high pass 80 Hz (filter
-// active on new instances) and threshold -12 dB.
+// slot 22 = GUI mode, slot 23 = mono, "-reserved" spacers between) are
+// identical to di76.jsfx, so saved sessions and slider values stay
+// interchangeable between di76, di76-tuk and di76-png (sessions saved
+// before slots 22/23 existed load them as 0 = PNG classic / stereo).
+// Deliberate differences here: ratio is continuous (no snapping), and the
+// defaults are high pass 80 Hz (filter active on new instances) and
+// threshold -12 dB.
 // GUI library: tk_gui_tools.jsfx-inc by Tukan_Studios - "free as in free
 // beer", may be used, modified and shared for JSFX plugins; parts of the
 // VU-meter code with friendly permission from ZenoMOD (chris-s, ZenoMOD).
@@ -25,9 +30,9 @@
 // The layouts are adapted from the "Blue One Compressor BL-1C" example
 // (MIT License, Copyright (c) 2026 JClones / Tukan):
 //   https://github.com/TukanStudios/TUKAN_STUDIOS_PLUGINS
-// PNG files required next to this plugin (from the library zip):
+// PNG files required next to this plugin (from the library zip + BL-1C):
 //   HexKnob.png (101 stacked knob frames), Transtparent_Black_VU.png (VU dial),
-//   VU_Shadow.png, Glow_VU.png (VU dressing)
+//   VU_Shadow.png, Glow_VU.png (VU dressing), PlasticSwitch.png (mono switch)
 // DSP origin/credits: see di76.jsfx (Stillwell 1175, BSD, retained below).
 
 // Copyright 2006, Thomas Scott Stillwell
@@ -81,6 +86,7 @@ slider19:0<0,1,1>-reserved
 slider20:0<0,1,1>-reserved
 slider21:250<20,1000,1>Release (mS)
 slider22:0<0,2,1{PNG Classic,GUI 1 White,Generic sliders}>Gui mode
+slider23:0<0,1,1{Stereo,Mono}>Mono
 
 in_pin:left input
 in_pin:right input
@@ -91,6 +97,7 @@ filename:0,HexKnob.png
 filename:1,Transtparent_Black_VU.png
 filename:2,VU_Shadow.png
 filename:3,Glow_VU.png
+filename:4,PlasticSwitch.png
 
 import tk_gui_tools.jsfx-inc
 
@@ -313,6 +320,12 @@ options: no_meter // tell REAPER to not draw its I/O meter strips on the window 
   spl0 *= grv * makeupv;
   spl1 *= grv * makeupv;
 
+  // mono switch (mondi.jsfx logic): averages the channels. Guarded so Stereo
+  // leaves the signal path untouched (bit-transparent).
+  slider23 > 0 ? (
+    spl0 = spl1 = (spl0 + spl1) * 0.5;
+  );
+
   // meters (pure analysis)
   Left_Out.feed_meter(spl0, -60);
   Right_Out.feed_meter(spl1, -60);
@@ -335,9 +348,10 @@ options: no_meter // tell REAPER to not draw its I/O meter strips on the window 
 gui_mode = floor(slider22 + 0.5); // 0 = PNG classic, 1 = GUI 1 White, 2 = generic sliders
 gui_mode == 2 ? edit_knob = 0;
 
-// slider panel: only in generic mode (incl. the "Gui mode" dropdown, slider22)
+// slider panel: only in generic mode (incl. the Gui mode / Mono dropdowns)
 slider_show(2097151, gui_mode == 2); // 2097151 = 2^21-1 = bitmask for sliders 1..21
 slider_show(slider22, gui_mode == 2);
+slider_show(slider23, gui_mode == 2);
 
 gui_mode < 2 ? ( // custom canvas modes
 
@@ -391,6 +405,9 @@ Release.knob_infill(250,250,250,255);
 Gain.knob_infill(250,250,250,255);
 
 knobdistance = 1.3;
+
+// mono/stereo switch (slider 23, default Stereo), same spot in both modes
+mono.button_config(788,138,60,60,23,1,1);
 
 // knob images: HexKnob.png is 100x10100 = 101 stacked frames
 // the label under each knob is clickable in BOTH modes (value input box)
@@ -525,6 +542,7 @@ edit_knob == 13 ? value_entry(410,285,13,-20,20,1) : (
 );
 
 // ---- meters: needle VU (PNG) or in/GR/out bars (White) ----
+// plus the mono/stereo switch in the bottom-right of the meter area
 gui_mode == 0 ? (
   Set_VR_needle_color(20,20,20);
   gfx_dest = 120;
@@ -539,6 +557,18 @@ gui_mode == 0 ? (
   fontsize(19);
   set_xy(730,120);
   gfx_drawstr("GR");
+  // mono switch: BL-1C-style plastic switch image over the VU
+  mono.button_outline(2,100,250,100,80,80,80);
+  mono.button_infill(0,100,0,30,30,30);
+  gfx_a = 0;
+  mono.button();
+  gfx_a = 1;
+  set_xy(mono.x-8,mono.y-8);
+  gfx_blit(4,1.25*60/200*TK_GUI_Scaling,0,0,200*!slider23,200,200);
+  slider23 ? sprintf(#TK_gfxlib_Label,"Mono") : sprintf(#TK_gfxlib_Label,"Stereo");
+  set_xy(mono.x-4,mono.y+66);
+  bisque(1);
+  gfx_drawstr(#TK_gfxlib_Label);
 ) : (
   mmx=520; mmy=35; mmh=230; mmw=25;
   fontsize(12);
@@ -563,6 +593,12 @@ gui_mode == 0 ? (
   draw_vertical_scale_labels(mmx,mmy,mmw*2.5,mmh,-60,6,6);
   draw_vertical_scale_labels(mmx+4.25*mmw,mmy,mmw,mmh,-20,0,2);
   draw_vertical_scale_labels(mmx+7*mmw,mmy,mmw*2.5,mmh,-60,6,6);
+  // mono switch: plain white-skin button labelled Stereo/Mono
+  mono.button_outline(3,0,0,0,170,170,170);
+  mono.button_infill(250,250,250,190,190,190);
+  mono.button();
+  slider23 ? sprintf(#TK_gfxlib_Label,"Mono") : sprintf(#TK_gfxlib_Label,"Stereo");
+  mono.button_label(5,0,0);
   fontsize(13);
   rgb(0,0,0);
   set_xy(536,272);
