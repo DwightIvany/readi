@@ -2,6 +2,11 @@
 // di76 with the TUKAN "Classic" interface - the PNG-based GUI of the
 // tk_gui_tools library (GUI mode 0 of the BL-1C sample): framed knob images,
 // a ZenoMOD-style needle VU for gain reduction, blue faceplate.
+// Clicking the text under a knob turns it into an input box: type the value
+// (Enter commits, Escape cancels, clicking another label switches to it).
+// Editing follows Geraint Luff's ui-lib textbox pattern (cursor + selection,
+// rebuild-based string edits). Gain accepts decimals; the other knobs accept
+// integers only.
 // The audio code and the slider block (slots 1,5,9,13,17,21 with "-reserved"
 // spacers) are identical to di76.jsfx, so saved sessions and slider values
 // stay interchangeable between di76, di76-tuk and di76-png. Deliberate
@@ -98,6 +103,14 @@ options: no_meter // tell REAPER to not draw its I/O meter strips on the window 
   // (what @slider would normally do). @slider only sets a flag and @block
   // runs this function, so both slider moves and knob moves end up here.
   function slidercode() (
+    // di76-png uses integer values for every knob except Gain (decimals):
+    // snap on any slider change so typed, displayed and stored values agree.
+    slider1 = floor(slider1 + 0.5);
+    slider5 = floor(slider5 + 0.5);
+    slider9 = floor(slider9 + 0.5);
+    slider17 = floor(slider17 + 0.5);
+    slider21 = floor(slider21 + 0.5);
+
     hpcutoff = slider1;
     hpb1 = exp(-4*$pi * hpcutoff / srate);
     hpa0 = (hpb1 + 1) * 0.5;
@@ -110,6 +123,138 @@ options: no_meter // tell REAPER to not draw its I/O meter strips on the window 
     makeupv = exp(makeup * db2log);
     atcoef = exp(-1/((slider17/1000000) * srate));
     relcoef = exp(-1/((slider21/1000) * srate));
+  );
+
+  // Value input box, shown while edit_knob == slider_. Call sites set
+  // edit_knob, pre-fill #edit_buf with the current value and select it all.
+  // Keyboard model and string editing follow Geraint Luff's ui-lib textbox
+  // (Echo Cycles): cursor (edit_cur) + selection anchor (edit_trail), and
+  // every change REBUILDS the string with strcpy_substr/strcpy_from/strcat -
+  // writing NUL via str_setchar does not reliably shorten a string.
+  // Keys: digits, '-' (first character only), '.' (Gain only, one per value),
+  // Backspace/Delete, Left/Right (Shift extends selection), Home/End,
+  // Ctrl+A select all. Enter commits (empty box cancels), Escape cancels,
+  // clicking another knob's label switches there and discards this edit.
+  function value_entry(cx_, cy_, slider_, min_, max_, frac_) local (c, len, v, sg, fr, dp, i, ch, lo, hi, allow, tw, th, w1, w2, sx, selx, blink, best_i, best_d, bx, by) (
+    len = strlen(#edit_buf);
+    edit_cur = min(edit_cur, len);
+    edit_trail = min(edit_trail, len);
+
+    // ---- keyboard ----
+    while ((c = gfx_getchar()) > 0) (
+      c == 13 ? ( // Enter: commit
+        len > 0 ? (
+          v = 0; sg = 1; fr = 0; dp = 0; i = 0;
+          while (i < len) (
+            ch = str_getchar(#edit_buf, i);
+            ch == 45 ? sg = -1 : (
+              ch == 46 ? dp = 1 : (
+                v = v*10 + ch - 48;
+                dp ? fr += 1;
+              );
+            );
+            i += 1;
+          );
+          v = sg * v / (10^fr);
+          slider(slider_) = min(max_, max(min_, v));
+          slider_update(slider_);
+          flag_run_slidercode = 1;
+        );
+        edit_knob = 0;
+      ) : c == 27 ? ( // Escape: cancel
+        edit_knob = 0;
+      ) : c == 1 ? ( // Ctrl+A: select all
+        edit_cur = 0; edit_trail = len;
+      ) : c == 8 || c == 6579564 ? ( // Backspace / Delete
+        lo = min(edit_cur, edit_trail); hi = max(edit_cur, edit_trail);
+        lo == hi ? ( c == 8 ? lo = max(lo-1, 0) : hi = min(hi+1, len); );
+        strcpy_substr(#ve_a, #edit_buf, 0, lo);
+        strcpy_from(#ve_b, #edit_buf, hi);
+        strcat(#ve_a, #ve_b);
+        strcpy(#edit_buf, #ve_a);
+        edit_cur = edit_trail = lo;
+        len = strlen(#edit_buf);
+      ) : c == 1818584692 ? ( // Left
+        edit_cur = max(edit_cur - 1, 0);
+        mouse_shift == 0 ? edit_trail = edit_cur;
+      ) : c == 1919379572 ? ( // Right
+        edit_cur = min(edit_cur + 1, len);
+        mouse_shift == 0 ? edit_trail = edit_cur;
+      ) : c == 1752132965 ? ( // Home
+        edit_cur = edit_trail = 0;
+      ) : c == 6647396 ? ( // End
+        edit_cur = edit_trail = len;
+      ) : c >= 32 && c < 127 ? ( // printable
+        ch = 0;
+        c >= 48 && c <= 57 ? ch = c : c == 45 ? ch = 45 : (c == 46 && frac_) ? ch = 46;
+        ch ? (
+          lo = min(edit_cur, edit_trail); hi = max(edit_cur, edit_trail);
+          allow = 0;
+          ch >= 48 && ch <= 57 ? allow = 1 : (
+            ch == 45 ? ( lo == 0 ? allow = 1; ) : (
+              i = 0; dp = 0; // '.' allowed only if the buffer has none yet
+              while (i < len) ( str_getchar(#edit_buf, i) == 46 ? dp = 1; i += 1; );
+              dp == 0 ? allow = 1;
+            );
+          );
+          allow && len < 8 ? (
+            strcpy_substr(#ve_a, #edit_buf, 0, lo);
+            str_setchar(#ve_a, lo, ch);
+            strcpy_from(#ve_b, #edit_buf, hi);
+            strcat(#ve_a, #ve_b);
+            strcpy(#edit_buf, #ve_a);
+            edit_cur = edit_trail = lo + 1;
+            len = strlen(#edit_buf);
+          );
+        );
+      );
+    );
+
+    // ---- mouse: click places the cursor, double-click selects all ----
+    area_mouse_detect(cx_-34, cy_-11, 68, 22, 4) ? (
+      edit_cur = len; edit_trail = 0;
+    ) : area_mouse_detect(cx_-34, cy_-11, 68, 22, 1) ? (
+      best_i = 0; best_d = 999999999;
+      gfx_measurestr(#edit_buf, tw, th);
+      i = 0;
+      while (i <= len) (
+        strcpy_substr(#ve_a, #edit_buf, 0, i);
+        gfx_measurestr(#ve_a, w1, th);
+        dp = abs(mouse_x - (cx_*TK_GUI_Scaling - tw/2 + w1));
+        dp < best_d ? ( best_d = dp; best_i = i; );
+        i += 1;
+      );
+      edit_cur = best_i;
+      mouse_shift == 0 ? edit_trail = edit_cur;
+    );
+
+    // ---- draw box, selection, cursor, text ----
+    lo = min(edit_cur, edit_trail); hi = max(edit_cur, edit_trail);
+    bx = cx_*TK_GUI_Scaling; by = cy_*TK_GUI_Scaling;
+    gfx_r = gfx_g = gfx_b = 1; gfx_a = 1;
+    gfx_rect(bx - 34*TK_GUI_Scaling, by - 11*TK_GUI_Scaling, 68*TK_GUI_Scaling, 22*TK_GUI_Scaling);
+    rgb(0,0,0);
+    draw_rect(cx_-34, cy_-11, 68, 22, 1);
+    gfx_measurestr(#edit_buf, tw, th);
+    sx = bx - tw/2;
+    strcpy_substr(#ve_a, #edit_buf, 0, lo);
+    gfx_x = sx; gfx_y = by - th/2;
+    gfx_drawstr(#ve_a); // gfx_x advances to the end of the drawn part
+    lo < hi ? ( // selection: black bar, white text
+      strcpy_substr(#ve_b, #edit_buf, lo, hi - lo);
+      gfx_measurestr(#ve_b, w2, th);
+      selx = gfx_x;
+      gfx_r = gfx_g = gfx_b = 0; gfx_a = 1;
+      gfx_rect(selx, by - th*0.62, w2, th*1.24);
+      gfx_r = gfx_g = gfx_b = 1;
+      gfx_drawstr(#ve_b);
+      rgb(0,0,0);
+    ) : ( // no selection: blinking cursor line
+      blink = time_precise(); blink = blink - floor(blink);
+      blink < 0.5 ? gfx_line(gfx_x, by - th*0.62, gfx_x, by + th*0.62);
+    );
+    strcpy_from(#ve_a, #edit_buf, hi);
+    gfx_drawstr(#ve_a);
   );
 
 @slider
@@ -157,6 +302,9 @@ options: no_meter // tell REAPER to not draw its I/O meter strips on the window 
 
 start_gfx(870,300,300); // canvas size from @gfx, 300 = mouse sensitivity
 
+// keep the key queue clean while no input box is open (edit_knob = 0)
+edit_knob == 0 ? ( while (gfx_getchar() > 0); );
+
 // hide the native slider panel - the knob GUI is the only UI
 // (values are still saved and automatable; slider positions unchanged)
 // NOTE: slider_show() takes the slider VARIABLE (or a 2^(n-1) bitmask), not a
@@ -193,17 +341,24 @@ bisque(1); // classic label color
 knobdistance = 1.3;
 
 // knob images: HexKnob.png is 100x10100 = 101 stacked frames
-// name + live value combined on one line under each knob (keeps the canvas short)
+// each label is clickable: click turns it into a value input box
 fontsize(14);
+edit_knob == 1 ? value_entry(70,140,1,0,400,0) : (
+  area_mouse_detect(10,130,120,20,1) && mouse_click ? (edit_knob = 1; sprintf(#edit_buf,"%d",floor(slider1+0.5)); edit_cur = strlen(#edit_buf); edit_trail = 0;);
+  slider1 == 0 ? sprintf(#TK_gfxlib_Label,"HIGH PASS OFF") : sprintf(#TK_gfxlib_Label,"HIGH PASS %d",slider1);
+  HighPass.knob_label(0,1.5);
+);
 HighPass.knob_png(0,101,1.2);
 fontsize(15);
 #TK_gfxlib_Label = "0";   HighPass.knob_label(1,knobdistance);
 #TK_gfxlib_Label = "200"; HighPass.knob_label(2,knobdistance);
 #TK_gfxlib_Label = "400"; HighPass.knob_label(3,knobdistance);
-fontsize(14);
-slider1 == 0 ? sprintf(#TK_gfxlib_Label,"HIGH PASS OFF") : sprintf(#TK_gfxlib_Label,"HIGH PASS %d",slider1);
-HighPass.knob_label(0,1.5);
 
+edit_knob == 5 ? value_entry(240,140,5,-60,0,0) : (
+  area_mouse_detect(180,130,120,20,1) && mouse_click ? (edit_knob = 5; sprintf(#edit_buf,"%d",floor(slider5+0.5)); edit_cur = strlen(#edit_buf); edit_trail = 0;);
+  sprintf(#TK_gfxlib_Label,"THRESHOLD %d",floor(slider5+0.5));
+  Threshold.knob_label(0,1.5);
+);
 Threshold.knob_png(0,101,1.2);
 fontsize(15);
 #TK_gfxlib_Label = "-60"; Threshold.knob_label(1,knobdistance);
@@ -213,10 +368,12 @@ fontsize(15);
 #TK_gfxlib_Label = "-20"; Threshold.knob_label(5,knobdistance);
 #TK_gfxlib_Label = "-10"; Threshold.knob_label(6,knobdistance);
 #TK_gfxlib_Label = "0";   Threshold.knob_label(7,knobdistance);
-fontsize(14);
-sprintf(#TK_gfxlib_Label,"THRESHOLD %.1f",slider5);
-Threshold.knob_label(0,1.5);
 
+edit_knob == 9 ? value_entry(410,140,9,4,20,0) : (
+  area_mouse_detect(350,130,120,20,1) && mouse_click ? (edit_knob = 9; sprintf(#edit_buf,"%d",floor(slider9+0.5)); edit_cur = strlen(#edit_buf); edit_trail = 0;);
+  sprintf(#TK_gfxlib_Label,"RATIO %d",floor(slider9+0.5));
+  Ratio.knob_label(0,1.5);
+);
 Ratio.knob_png(0,101,1.2);
 fontsize(15);
 #TK_gfxlib_Label = "4";  Ratio.knob_label(1,knobdistance);
@@ -224,28 +381,34 @@ fontsize(15);
 #TK_gfxlib_Label = "12"; Ratio.knob_label(3,knobdistance);
 #TK_gfxlib_Label = "16"; Ratio.knob_label(4,knobdistance);
 #TK_gfxlib_Label = "20"; Ratio.knob_label(5,knobdistance);
-fontsize(14);
-sprintf(#TK_gfxlib_Label,"RATIO %.1f",slider9);
-Ratio.knob_label(0,1.5);
 
+edit_knob == 17 ? value_entry(70,285,17,20,2000,0) : (
+  area_mouse_detect(10,275,120,20,1) && mouse_click ? (edit_knob = 17; sprintf(#edit_buf,"%d",floor(slider17+0.5)); edit_cur = strlen(#edit_buf); edit_trail = 0;);
+  sprintf(#TK_gfxlib_Label,"ATTACK uS %d",floor(slider17+0.5));
+  Attack.knob_label(0,1.5);
+);
 Attack.knob_png(0,101,1.2);
 fontsize(15);
 #TK_gfxlib_Label = "20";   Attack.knob_label(1,knobdistance);
 #TK_gfxlib_Label = "";     Attack.knob_label(2,knobdistance);
 #TK_gfxlib_Label = "2000"; Attack.knob_label(3,knobdistance);
-fontsize(14);
-sprintf(#TK_gfxlib_Label,"ATTACK uS %d",slider17);
-Attack.knob_label(0,1.5);
 
+edit_knob == 21 ? value_entry(240,285,21,20,1000,0) : (
+  area_mouse_detect(180,275,120,20,1) && mouse_click ? (edit_knob = 21; sprintf(#edit_buf,"%d",floor(slider21+0.5)); edit_cur = strlen(#edit_buf); edit_trail = 0;);
+  sprintf(#TK_gfxlib_Label,"RELEASE mS %d",floor(slider21+0.5));
+  Release.knob_label(0,1.5);
+);
 Release.knob_png(0,101,1.2);
 fontsize(15);
 #TK_gfxlib_Label = "20";   Release.knob_label(1,knobdistance);
 #TK_gfxlib_Label = "";     Release.knob_label(2,knobdistance);
 #TK_gfxlib_Label = "1000"; Release.knob_label(3,knobdistance);
-fontsize(14);
-sprintf(#TK_gfxlib_Label,"RELEASE mS %d",slider21);
-Release.knob_label(0,1.5);
 
+edit_knob == 13 ? value_entry(410,285,13,-20,20,1) : (
+  area_mouse_detect(350,275,120,20,1) && mouse_click ? (edit_knob = 13; sprintf(#edit_buf,"%.1f",slider13); edit_cur = strlen(#edit_buf); edit_trail = 0;);
+  sprintf(#TK_gfxlib_Label,"GAIN %.1f",slider13);
+  Gain.knob_label(0,1.5);
+);
 Gain.knob_png(0,101,1.2);
 fontsize(15);
 #TK_gfxlib_Label = "-20"; Gain.knob_label(1,knobdistance);
@@ -253,9 +416,6 @@ fontsize(15);
 #TK_gfxlib_Label = "0";   Gain.knob_label(3,knobdistance);
 #TK_gfxlib_Label = "10";  Gain.knob_label(4,knobdistance);
 #TK_gfxlib_Label = "20";  Gain.knob_label(5,knobdistance);
-fontsize(14);
-sprintf(#TK_gfxlib_Label,"GAIN %.1f",slider13);
-Gain.knob_label(0,1.5);
 
 // gain-reduction VU: needle over the PNG dial, glow + shadow dressing
 Set_VR_needle_color(20,20,20);
