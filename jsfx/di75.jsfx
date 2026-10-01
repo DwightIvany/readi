@@ -569,11 +569,13 @@ gui_mode == 0 ? (
   draw_vertical_scale(mmx,mmy,mmw*2.5,mmh,-60,6,6);
   draw_vertical_scale(mmx+4.25*mmw,mmy,mmw,mmh,-20,0,2);
   draw_vertical_scale(mmx+7*mmw,mmy,mmw*2.5,mmh,-60,6,6);
-  gfx_a=0.8;
-  rgb(150,150,150); // vu body (white skin value)
+  gfx_a=1;
+  rgb(0,100,0); // in/out meter body: green
   Left_In.draw_vertical_meter(mmx,mmy,mmw,mmh,-60,6,1,0);
   Right_In.draw_vertical_meter(mmx+1.5*mmw,mmy,mmw,mmh,-60,6,1,0);
+  rgb(212,0,0); // GR meter body: red
   reduct.draw_vertical_GR_meter(mmx+4.25*mmw,mmy,mmw,mmh,-20,0,1,0);
+  rgb(0,100,0); // in/out meter body: green
   Left_Out.draw_vertical_meter(mmx+7*mmw,mmy,mmw,mmh,-60,6,1,0);
   Right_Out.draw_vertical_meter(mmx+8.5*mmw,mmy,mmw,mmh,-60,6,1,0);
   rgb(0,0,0); // peak-hold line
@@ -606,8 +608,8 @@ gui_mode == 0 ? (
   rgb(0,0,0);
   set_xy(536,272);
   gfx_drawstr("INPUT");
-  set_xy(613,272);
-  gfx_drawstr("REDUCT");
+  set_xy(632,272);
+  gfx_drawstr("GR");
   set_xy(739,272);
   gfx_drawstr("OUTPUT");
 );

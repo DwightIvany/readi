@@ -17,14 +17,7 @@ void Di75LookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, int w, i
     const float angle = rotaryStartAngle
         + sliderPosProportional * (rotaryEndAngle - rotaryStartAngle);
 
-    // value arc from the start angle up to the current value
-    juce::Path arc;
-    arc.addCentredArc(cx, cy, radius + 3.0f, radius + 3.0f, 0.0f,
-                      rotaryStartAngle, angle, true);
-    g.setColour(juce::Colours::black);
-    g.strokePath(arc, juce::PathStrokeType(2.5f));
-
-    // white body with a black outline
+    // white body with a black outline (no value arc, per the clean-knob look)
     g.setColour(juce::Colour(250, 250, 250));
     g.fillEllipse(knobArea);
     g.setColour(juce::Colours::black);
@@ -136,13 +129,14 @@ void MeterPanel::paint(juce::Graphics& g)
     drawScale(130.0f, { -20.0f, -10.0f, 0.0f }, -20.0f, 0.0f);
     drawScale(199.0f, { -60.0f, -48.0f, -36.0f, -24.0f, -12.0f, 0.0f }, -60.0f, 6.0f);
 
-    auto drawBar = [&](float barX, float shownDb, float holdDb, float dbMin, float dbMax)
+    auto drawBar = [&](float barX, float shownDb, float holdDb, float dbMin, float dbMax,
+                       juce::Colour fillColour)
     {
         const auto bar = juce::Rectangle<float>(barX, 0.0f, 25.0f, meterBarHeight);
 
-        // grey body filled up to the current level
+        // colored body filled up to the current level
         const float y = levelY(juce::jlimit(dbMin, dbMax, shownDb), dbMin, dbMax);
-        g.setColour(juce::Colour(150, 150, 150).withAlpha(0.8f));
+        g.setColour(fillColour);
         g.fillRect(bar.withTop(y));
 
         g.setColour(juce::Colours::black);
@@ -153,18 +147,21 @@ void MeterPanel::paint(juce::Graphics& g)
         g.fillRect(barX, hy - 1.0f, 25.0f, 2.0f);
     };
 
-    drawBar(24.0f, inLShown, holdInL, -60.0f, 6.0f);
-    drawBar(61.0f, inRShown, holdInR, -60.0f, 6.0f);
-    drawBar(130.0f, grShown, holdGr, -20.0f, 0.0f);
-    drawBar(199.0f, outLShown, holdOutL, -60.0f, 6.0f);
-    drawBar(236.0f, outRShown, holdOutR, -60.0f, 6.0f);
+    const juce::Colour inOutColour(0, 100, 0);   // green, per RedGreenBars.png
+    const juce::Colour grColour(212, 0, 0);      // red
+
+    drawBar(24.0f, inLShown, holdInL, -60.0f, 6.0f, inOutColour);
+    drawBar(61.0f, inRShown, holdInR, -60.0f, 6.0f, inOutColour);
+    drawBar(130.0f, grShown, holdGr, -20.0f, 0.0f, grColour);
+    drawBar(199.0f, outLShown, holdOutL, -60.0f, 6.0f, inOutColour);
+    drawBar(236.0f, outRShown, holdOutR, -60.0f, 6.0f, inOutColour);
 
     // captions (absolute y ~= 272)
     g.setColour(juce::Colours::black);
     g.setFont(juce::Font(13.0f));
     g.drawText("INPUT", juce::Rectangle<float>(25.0f, 237.0f, 60.0f, 16.0f),
                juce::Justification::centred);
-    g.drawText("REDUCT", juce::Rectangle<float>(112.0f, 237.0f, 60.0f, 16.0f),
+    g.drawText("GR", juce::Rectangle<float>(112.0f, 237.0f, 60.0f, 16.0f),
                juce::Justification::centred);
     g.drawText("OUTPUT", juce::Rectangle<float>(200.0f, 237.0f, 60.0f, 16.0f),
                juce::Justification::centred);
