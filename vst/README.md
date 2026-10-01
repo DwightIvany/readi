@@ -3,14 +3,16 @@
 VST3 port of the REAPER JSFX compressor `jsfx/di75.jsfx` — a fast-attack
 1175-style stereo compressor (DSP derived from Stillwell 1175, BSD) with the
 same DSP, parameter ranges/defaults, and a vector-drawn replica of the
-"PNG Classic" blue skin (no image assets).
+"GUI 1 White" skin (no image assets).
 
 - High-pass filter: 0–400 Hz (0 = off, bit-transparent)
 - Threshold −60–0 dB, Ratio 4–20, Gain (makeup) ±20 dB
 - Attack 20–2000 µs, Release 20–1000 ms
 - Mono switch (collapses L/R after the makeup gain)
-- Needle VU for gain reduction with ~3×/s peak-hold, click-a-label typed
-  value entry (Enter commits, Escape cancels)
+- Light-grey faceplate with white knobs (ring tick dots + value labels),
+  input/gain-reduction/output bar meters with ~3×/s peak-hold, and a mono
+  toggle right of the meters; click-a-label typed value entry (Enter commits,
+  Escape cancels)
 
 ## Building locally (Windows)
 
@@ -25,8 +27,12 @@ cmake --build build --config Release
 The plugin is written to
 
 ```
-build/di75_artefacts/Release/VST3/di75.vst3
+build/di75_artifacts/Release/VST3/di75.vst3
 ```
+
+(JUCE still emits its own British-spelled `di75_artefacts` directory
+internally; a post-build step copies the bundle to the `di75_artifacts`
+spelling above.)
 
 Copy that folder to `C:\Program Files\Common Files\VST3` (or point your
 DAW's VST3 search path at it).

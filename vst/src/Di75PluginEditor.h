@@ -4,11 +4,9 @@
 
 #include <juce_gui_basics/juce_gui_basics.h>
 
-// Faceplate blue + bisque text from the JSFX "PNG Classic" skin.
-inline juce::Colour di75FaceplateColour() { return juce::Colour(0x1E, 0x46, 0xAF); }
-inline juce::Colour di75TextColour() { return juce::Colour(0xF5, 0xDE, 0xB3); }
+#include <atomic>
 
-// Metallic-blue rotary knob with value arc (vector-drawn, no image assets).
+// White rotary knob with black outline/arc (vector-drawn, no image assets).
 class Di75LookAndFeel : public juce::LookAndFeel_V4
 {
 public:
@@ -17,23 +15,30 @@ public:
                           float rotaryEndAngle, juce::Slider& slider) override;
 };
 
-// Needle VU for gain reduction (1.0 = rest = far left; 0..20 dB across the sweep).
-class VuMeter : public juce::Component, private juce::Timer
+// White-skin meter panel: Left/Right input, gain reduction, Left/Right output
+// vertical bars with scales and ~3x/sec peak-hold. Instant attack, ~15 dB/s decay.
+class MeterPanel : public juce::Component, private juce::Timer
 {
 public:
-    VuMeter();
+    MeterPanel();
 
-    void setGrv(float newGrv) { grv.store(newGrv); }
+    void setLevels(float newInL, float newInR, float newGrv, float newOutL, float newOutR);
     void paint(juce::Graphics& g) override;
 
 private:
     void timerCallback() override;
 
-    std::atomic<float> grv { 1.0f };
-    float holdGrv = 1.0f;
+    std::atomic<float> inL { 0.0f }, inR { 0.0f }, grv { 1.0f }, outL { 0.0f }, outR { 0.0f };
+
+    float inLShown = -60.0f, inRShown = -60.0f, grShown = -20.0f;
+    float outLShown = -60.0f, outRShown = -60.0f;
+
+    float holdInL = -60.0f, holdInR = -60.0f, holdGr = -20.0f;
+    float holdOutL = -60.0f, holdOutR = -60.0f;
+
     int tick = 0;
 
-    JUCE_DECLARE_NON_COPYABLE(VuMeter)
+    JUCE_DECLARE_NON_COPYABLE(MeterPanel)
 };
 
 // Editable value label: click to type a value, Enter commits, Escape cancels.
@@ -103,7 +108,7 @@ private:
 
     ValueLabel hpLabel, threshLabel, ratioLabel, atkLabel, relLabel, gainLabel;
 
-    VuMeter vuMeter;
+    MeterPanel meterPanel;
 
     StateButton monoButton;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> monoAttachment;

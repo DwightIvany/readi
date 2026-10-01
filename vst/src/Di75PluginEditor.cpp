@@ -1,5 +1,6 @@
 #include "Di75PluginEditor.h"
 
+#include <algorithm>
 #include <cmath>
 
 //==============================================================================
@@ -20,22 +21,17 @@ void Di75LookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, int w, i
     juce::Path arc;
     arc.addCentredArc(cx, cy, radius + 3.0f, radius + 3.0f, 0.0f,
                       rotaryStartAngle, angle, true);
-    g.setColour(di75TextColour());
+    g.setColour(juce::Colours::black);
     g.strokePath(arc, juce::PathStrokeType(2.5f));
 
-    // metallic-blue body with a darker rim
-    juce::ColourGradient gradient(juce::Colour(0x6A, 0x82, 0xE2),
-                                  cx, cy - radius,
-                                  juce::Colour(0x2E, 0x4A, 0xC0),
-                                  cx, cy + radius, false);
-    g.setGradientFill(gradient);
+    // white body with a black outline
+    g.setColour(juce::Colour(250, 250, 250));
     g.fillEllipse(knobArea);
-    g.setColour(juce::Colour(0x14, 0x2E, 0x7A));
+    g.setColour(juce::Colours::black);
     g.drawEllipse(knobArea, 2.0f);
 
-    // white pointer
+    // black pointer
     const float pointerLength = radius * 0.72f;
-    g.setColour(juce::Colours::white);
     g.drawLine(juce::Line<float>(cx, cy,
                                  cx + pointerLength * std::sin(angle),
                                  cy - pointerLength * std::cos(angle)),
@@ -43,88 +39,134 @@ void Di75LookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, int w, i
 }
 
 //==============================================================================
-VuMeter::VuMeter()
+// Bar geometry (local coords): bars are 25x230, input group x=24/61,
+// GR x=130, output group x=199/236. The panel sits at editor (496,35), which
+// puts Left_In at absolute x=520 and leaves room for scale labels at x<24.
+namespace
+{
+constexpr float meterBarHeight = 230.0f;
+
+float levelY(float db, float dbMin, float dbMax)
+{
+    return meterBarHeight * (1.0f - (db - dbMin) / (dbMax - dbMin));
+}
+} // namespace
+
+MeterPanel::MeterPanel()
 {
     startTimerHz(30);
 }
 
-void VuMeter::timerCallback()
+void MeterPanel::setLevels(float newInL, float newInR, float newGrv, float newOutL, float newOutR)
+{
+    inL.store(newInL);
+    inR.store(newInR);
+    grv.store(newGrv);
+    outL.store(newOutL);
+    outR.store(newOutR);
+}
+
+void MeterPanel::timerCallback()
 {
     ++tick;
-    const float g = grv.load();
+    const float step = 15.0f / 30.0f; // ~15 dB/sec decay at 30 Hz
 
-    if (g < holdGrv)
-        holdGrv = g;
+    // instant attack, smooth decay toward the current reading
+    auto follow = [step](float target, float current)
+    { return target > current ? target : std::max(target, current - step); };
+
+    auto peakDb = [](float peak)
+    {
+        if (peak <= 0.0f)
+            return -60.0f;
+        return juce::jlimit(-60.0f, 6.0f, 20.0f * std::log10(peak));
+    };
+
+    auto reductionDb = [](float grvValue)
+    {
+        if (grvValue <= 0.0f)
+            return 0.0f; // full-scale reduction
+        return juce::jlimit(0.0f, 20.0f, -20.0f * std::log10(grvValue));
+    };
+
+    inLShown = follow(peakDb(inL.load()), inLShown);
+    inRShown = follow(peakDb(inR.load()), inRShown);
+    // map 0..20 dB of reduction onto the bar's -20..0 dB range
+    grShown = follow(reductionDb(grv.load()) - 20.0f, grShown);
+    outLShown = follow(peakDb(outL.load()), outLShown);
+    outRShown = follow(peakDb(outR.load()), outRShown);
+
+    holdInL = std::max(holdInL, inLShown);
+    holdInR = std::max(holdInR, inRShown);
+    holdGr = std::max(holdGr, grShown);
+    holdOutL = std::max(holdOutL, outLShown);
+    holdOutR = std::max(holdOutR, outRShown);
+
     if (tick % 10 == 0) // peak-hold reset ~3x per second, like the JSFX
-        holdGrv = g;
+    {
+        holdInL = inLShown;
+        holdInR = inRShown;
+        holdGr = grShown;
+        holdOutL = outLShown;
+        holdOutR = outRShown;
+    }
 
     repaint();
 }
 
-void VuMeter::paint(juce::Graphics& g)
+void MeterPanel::paint(juce::Graphics& g)
 {
-    const float cx = getWidth() * 0.5f;
-    const float cy = 74.0f;
-    const float radius = 66.0f;
-
-    // dark inset dial
-    g.setColour(juce::Colour(0x0D, 0x18, 0x40));
-    g.fillEllipse(cx - radius, cy - radius, radius * 2.0f, radius * 2.0f);
-    g.setColour(juce::Colour(0x28, 0x36, 0x66));
-    g.drawEllipse(cx - radius, cy - radius, radius * 2.0f, radius * 2.0f, 2.0f);
-
-    const float start = juce::MathConstants<float>::pi * 1.25f;
-    const float end = juce::MathConstants<float>::pi * 2.75f;
-
-    auto angleFor = [&](float grDb) { return start + (grDb / 20.0f) * (end - start); };
-    auto pointAt = [&](float angle, float r)
-    { return juce::Point<float>(cx + r * std::sin(angle), cy - r * std::cos(angle)); };
-
-    // tick marks; red zone across the top ~2 dB
-    for (int db = 0; db <= 20; ++db)
+    // scale ticks + labels left of the input group, the GR bar, the output group
+    auto drawScale = [&](float barX, std::initializer_list<float> ticks,
+                         float dbMin, float dbMax)
     {
-        const float a = angleFor((float)db);
-        const bool major = (db % 5 == 0);
-        const float r0 = radius - 3.0f;
-        const float r1 = r0 - (major ? 9.0f : 5.0f);
-
-        g.setColour(db >= 18 ? juce::Colour(0xE0, 0x3A, 0x2E)
-                             : juce::Colour(0xC9, 0xD2, 0xEE));
-        g.drawLine(juce::Line<float>(pointAt(a, r0), pointAt(a, r1)), major ? 2.0f : 1.0f);
-
-        if (major)
+        g.setColour(juce::Colours::black);
+        g.setFont(juce::Font(10.0f));
+        for (float db : ticks)
         {
-            const auto p = pointAt(a, r1 - 9.0f);
-            g.setFont(juce::Font(10.0f));
-            g.drawText(juce::String(db), p.x - 10.0f, p.y - 6.0f, 20.0f, 12.0f,
-                       juce::Justification::centred);
+            const float y = levelY(db, dbMin, dbMax);
+            g.fillRect(barX - 5.0f, y - 0.5f, 4.0f, 1.0f);
+            g.drawText(juce::String((int)db),
+                       juce::Rectangle<float>(0.0f, y - 5.0f, barX - 7.0f, 10.0f),
+                       juce::Justification::centredRight);
         }
-    }
-
-    // hold needle (deepest recent reduction), then the live needle
-    auto drawNeedle = [&](float grvValue, juce::Colour colour, float length, float thickness)
-    {
-        float grDb = grvValue > 0.0f ? -20.0f * std::log10(grvValue) : 20.0f;
-        grDb = juce::jlimit(0.0f, 20.0f, grDb);
-        g.setColour(colour);
-        g.drawLine(juce::Line<float>(pointAt(angleFor(grDb), -6.0f),
-                                     pointAt(angleFor(grDb), length)),
-                   thickness);
     };
 
-    drawNeedle(holdGrv, juce::Colour(0xE0, 0x3A, 0x2E), radius - 14.0f, 1.5f);
-    drawNeedle(grv.load(), juce::Colours::white, radius - 14.0f, 2.5f);
+    drawScale(24.0f, { -60.0f, -48.0f, -36.0f, -24.0f, -12.0f, 0.0f }, -60.0f, 6.0f);
+    drawScale(130.0f, { -20.0f, -10.0f, 0.0f }, -20.0f, 0.0f);
+    drawScale(199.0f, { -60.0f, -48.0f, -36.0f, -24.0f, -12.0f, 0.0f }, -60.0f, 6.0f);
 
-    // hub
-    g.setColour(juce::Colour(0x1E, 0x46, 0xAF));
-    g.fillEllipse(cx - 5.0f, cy - 5.0f, 10.0f, 10.0f);
-    g.setColour(juce::Colour(0xC9, 0xD2, 0xEE));
-    g.drawEllipse(cx - 5.0f, cy - 5.0f, 10.0f, 10.0f, 1.0f);
+    auto drawBar = [&](float barX, float shownDb, float holdDb, float dbMin, float dbMax)
+    {
+        const auto bar = juce::Rectangle<float>(barX, 0.0f, 25.0f, meterBarHeight);
 
-    // caption
-    g.setColour(di75TextColour());
-    g.setFont(juce::Font(12.0f, juce::Font::bold));
-    g.drawText("GAIN REDUCTION dB", 0, getHeight() - 20, getWidth(), 16,
+        // grey body filled up to the current level
+        const float y = levelY(juce::jlimit(dbMin, dbMax, shownDb), dbMin, dbMax);
+        g.setColour(juce::Colour(150, 150, 150).withAlpha(0.8f));
+        g.fillRect(bar.withTop(y));
+
+        g.setColour(juce::Colours::black);
+        g.drawRect(bar, 1.0f);
+
+        // peak-hold marker
+        const float hy = levelY(juce::jlimit(dbMin, dbMax, holdDb), dbMin, dbMax);
+        g.fillRect(barX, hy - 1.0f, 25.0f, 2.0f);
+    };
+
+    drawBar(24.0f, inLShown, holdInL, -60.0f, 6.0f);
+    drawBar(61.0f, inRShown, holdInR, -60.0f, 6.0f);
+    drawBar(130.0f, grShown, holdGr, -20.0f, 0.0f);
+    drawBar(199.0f, outLShown, holdOutL, -60.0f, 6.0f);
+    drawBar(236.0f, outRShown, holdOutR, -60.0f, 6.0f);
+
+    // captions (absolute y ~= 272)
+    g.setColour(juce::Colours::black);
+    g.setFont(juce::Font(13.0f));
+    g.drawText("INPUT", juce::Rectangle<float>(25.0f, 237.0f, 60.0f, 16.0f),
+               juce::Justification::centred);
+    g.drawText("REDUCT", juce::Rectangle<float>(112.0f, 237.0f, 60.0f, 16.0f),
+               juce::Justification::centred);
+    g.drawText("OUTPUT", juce::Rectangle<float>(200.0f, 237.0f, 60.0f, 16.0f),
                juce::Justification::centred);
 }
 
@@ -139,8 +181,8 @@ ValueLabel::ValueLabel(juce::AudioProcessorValueTreeState& stateToUse,
 {
     setJustificationType(juce::Justification::centred);
     setFont(juce::Font(14.0f, juce::Font::bold));
-    setColour(juce::Label::textColourId, di75TextColour());
-    setColour(juce::Label::backgroundColourId, juce::Colours::transparentBlack);
+    setColour(juce::Label::textColourId, juce::Colours::black);
+    setColour(juce::Label::backgroundColourId, juce::Colours::transparentWhite);
     setEditable(true, false);
     addListener(this);
 }
@@ -151,11 +193,10 @@ juce::TextEditor* ValueLabel::createEditorComponent()
     editor->setInputRestrictions(8, "0123456789.-");
     editor->setSelectAllWhenFocused(true);
     editor->setFont(juce::Font(14.0f, juce::Font::bold));
-    editor->setColour(juce::TextEditor::textColourId, juce::Colours::white);
-    editor->setColour(juce::TextEditor::backgroundColourId, juce::Colour(0x14, 0x2E, 0x7A));
-    editor->setColour(juce::TextEditor::highlightColourId, juce::Colour(0x4C, 0x6E, 0xE6));
-    editor->setColour(juce::TextEditor::focusedOutlineColourId,
-                      juce::Colours::transparentBlack);
+    editor->setColour(juce::TextEditor::textColourId, juce::Colours::black);
+    editor->setColour(juce::TextEditor::backgroundColourId, juce::Colours::white);
+    editor->setColour(juce::TextEditor::highlightColourId, juce::Colour(190, 190, 190));
+    editor->setColour(juce::TextEditor::focusedOutlineColourId, juce::Colours::transparentBlack);
     return editor;
 }
 
@@ -223,20 +264,27 @@ void StateButton::paintButton(juce::Graphics& g, bool shouldDrawButtonAsHighligh
                               bool shouldDrawButtonAsDown)
 {
     const auto bounds = getLocalBounds().toFloat().reduced(1.5f);
-    auto face = getToggleState() ? juce::Colour(0x4C, 0x6E, 0xE6)
-                                 : juce::Colour(0x18, 0x34, 0x86);
+
+    juce::ColourGradient gradient(juce::Colours::white, bounds.getCentreX(), bounds.getY(),
+                                  juce::Colour(190, 190, 190), bounds.getCentreX(),
+                                  bounds.getBottom(), false);
+    g.setGradientFill(gradient);
+    g.fillRoundedRectangle(bounds, 6.0f);
 
     if (shouldDrawButtonAsDown)
-        face = face.darker(0.25f);
+    {
+        g.setColour(juce::Colours::black.withAlpha(0.2f));
+        g.fillRoundedRectangle(bounds, 6.0f);
+    }
     else if (shouldDrawButtonAsHighlighted)
-        face = face.brighter(0.15f);
+    {
+        g.setColour(juce::Colours::white.withAlpha(0.4f));
+        g.fillRoundedRectangle(bounds, 6.0f);
+    }
 
-    g.setColour(face);
-    g.fillRoundedRectangle(bounds, 6.0f);
-    g.setColour(juce::Colour(0x0C, 0x1C, 0x50));
-    g.drawRoundedRectangle(bounds, 6.0f, 1.5f);
+    g.setColour(juce::Colours::black);
+    g.drawRoundedRectangle(bounds, 6.0f, 2.0f);
 
-    g.setColour(di75TextColour());
     g.setFont(juce::Font(13.0f, juce::Font::bold));
     g.drawText(getToggleState() ? onText : offText, bounds, juce::Justification::centred);
 }
@@ -252,6 +300,40 @@ void setupKnob(juce::Slider& slider)
     slider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
     slider.setVelocityBasedMode(false);
     slider.setMouseDragSensitivity(300);
+}
+
+// Ring of tick dots + labels around a knob; label i of n sits at the
+// value-proportional angle (min at the rotary start, max at the end).
+void drawKnobRing(juce::Graphics& g, float centreX, float centreY,
+                  const char* const* labels, int count)
+{
+    const float knobRadius = 40.0f; // 80x80 knob
+    const float dotRadius = knobRadius * 1.30f;
+    const float textRadius = knobRadius * 1.52f;
+    const float start = juce::MathConstants<float>::pi * 1.25f;
+    const float end = juce::MathConstants<float>::pi * 2.75f;
+
+    g.setColour(juce::Colours::black);
+    g.setFont(juce::Font(12.0f));
+
+    for (int i = 0; i < count; ++i)
+    {
+        const float t = count > 1 ? (float)i / (float)(count - 1) : 0.5f;
+        const float a = start + t * (end - start);
+        const float sx = std::sin(a);
+        const float cy = std::cos(a);
+
+        g.fillEllipse(centreX + dotRadius * sx - 1.0f,
+                      centreY - dotRadius * cy - 1.0f, 2.0f, 2.0f);
+
+        const juce::String text(labels[i]);
+        if (text.isNotEmpty())
+            g.drawText(text,
+                       juce::Rectangle<float>(centreX + textRadius * sx - 16.0f,
+                                              centreY - textRadius * cy - 6.0f,
+                                              32.0f, 12.0f),
+                       juce::Justification::centred);
+    }
 }
 } // namespace
 
@@ -289,9 +371,9 @@ Di75PluginEditor::Di75PluginEditor(Di75PluginProcessor& p)
     relLabel.setBounds(180, 275, 120, 20);
     gainLabel.setBounds(350, 275, 120, 20);
 
-    vuMeter.setBounds(520, 40, 250, 165);
+    meterPanel.setBounds(496, 35, 263, 262);
 
-    monoButton.setBounds(612, 212, 60, 60);
+    monoButton.setBounds(788, 138, 60, 60);
 
     stereoCaption.setText("Stereo", juce::dontSendNotification);
     monoCaption.setText("Mono", juce::dontSendNotification);
@@ -300,12 +382,12 @@ Di75PluginEditor::Di75PluginEditor(Di75PluginProcessor& p)
     {
         caption->setJustificationType(juce::Justification::centred);
         caption->setFont(juce::Font(12.0f));
-        caption->setColour(juce::Label::textColourId, di75TextColour());
+        caption->setColour(juce::Label::textColourId, juce::Colours::black);
         caption->setInterceptsMouseClicks(false, false);
     }
 
-    stereoCaption.setBounds(592, 194, 100, 16);
-    monoCaption.setBounds(592, 278, 100, 16);
+    stereoCaption.setBounds(778, 120, 80, 16);
+    monoCaption.setBounds(778, 202, 80, 16);
 
     addAndMakeVisible(hpSlider);
     addAndMakeVisible(threshSlider);
@@ -319,7 +401,7 @@ Di75PluginEditor::Di75PluginEditor(Di75PluginProcessor& p)
     addAndMakeVisible(atkLabel);
     addAndMakeVisible(relLabel);
     addAndMakeVisible(gainLabel);
-    addAndMakeVisible(vuMeter);
+    addAndMakeVisible(meterPanel);
     addAndMakeVisible(monoButton);
     addAndMakeVisible(stereoCaption);
     addAndMakeVisible(monoCaption);
@@ -360,10 +442,25 @@ Di75PluginEditor::~Di75PluginEditor()
 
 void Di75PluginEditor::paint(juce::Graphics& g)
 {
-    g.fillAll(di75FaceplateColour());
+    g.fillAll(juce::Colour(220, 220, 220));
 
-    g.setColour(juce::Colour(40, 40, 40));
+    g.setColour(juce::Colours::black);
     g.drawRect(5.0f, 5.0f, 860.0f, 290.0f, 1.0f);
+
+    // knob rings (drawn first so the knobs paint on top)
+    const char* hpLabels[] = { "0", "200", "400" };
+    const char* threshLabels[] = { "-60", "-50", "-40", "-30", "-20", "-10", "0" };
+    const char* ratioLabels[] = { "4", "8", "12", "16", "20" };
+    const char* atkLabels[] = { "20", "", "2000" };
+    const char* relLabels[] = { "20", "", "1000" };
+    const char* gainLabels[] = { "-20", "-10", "0", "10", "20" };
+
+    drawKnobRing(g, 70.0f, 80.0f, hpLabels, 3);
+    drawKnobRing(g, 240.0f, 80.0f, threshLabels, 7);
+    drawKnobRing(g, 410.0f, 80.0f, ratioLabels, 5);
+    drawKnobRing(g, 70.0f, 225.0f, atkLabels, 3);
+    drawKnobRing(g, 240.0f, 225.0f, relLabels, 3);
+    drawKnobRing(g, 410.0f, 225.0f, gainLabels, 5);
 }
 
 void Di75PluginEditor::resized()
@@ -379,5 +476,7 @@ void Di75PluginEditor::timerCallback()
     relLabel.refreshFromParam();
     gainLabel.refreshFromParam();
 
-    vuMeter.setGrv(processor.grvMeter.load());
+    meterPanel.setLevels(processor.inPeakL.load(), processor.inPeakR.load(),
+                         processor.grvMeter.load(), processor.outPeakL.load(),
+                         processor.outPeakR.load());
 }

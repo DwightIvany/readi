@@ -48,6 +48,13 @@ target_link_libraries(di75
     PUBLIC
         di75_dsp)
 
+# JUCE emits its British-spelled "di75_artefacts" dir; mirror the bundle to the
+# American-spelled "di75_artifacts" dir that the user expects.
+add_custom_command(TARGET di75_VST3 POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_CURRENT_BINARY_DIR}/di75_artefacts/$<CONFIG>/VST3/di75.vst3"
+        "${CMAKE_CURRENT_BINARY_DIR}/di75_artifacts/$<CONFIG>/VST3/di75.vst3")
+
 enable_testing()
 add_executable(golden_test tests/golden_test.cpp)
 target_link_libraries(golden_test PRIVATE di75_dsp)
