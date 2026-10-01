@@ -10,7 +10,8 @@ same DSP, parameter ranges/defaults, and a vector-drawn replica of the
 - Attack 20–2000 µs, Release 20–1000 ms
 - Mono switch (collapses L/R after the makeup gain)
 - Light-grey faceplate with white knobs (ring tick dots + value labels),
-  input/gain-reduction/output bar meters with ~3×/s peak-hold, and a mono
+  input/gain-reduction/output bar meters — green for in/out, red for GR,
+  with ~3×/s peak-hold — and a mono
   toggle right of the meters; click-a-label typed value entry (Enter commits,
   Escape cancels)
 
@@ -70,7 +71,9 @@ git push origin v1.0.0
 ```
 
 Pushes and pull requests touching `vst/**` run the same build+test without
-releasing.
+releasing. CI uses MSVC + Ninja (`ilammy/msvc-dev-cmd`) rather than naming a
+Visual Studio generator, so it keeps working as GitHub updates the
+windows-latest image (which no longer ships VS2022).
 
 ## License
 
