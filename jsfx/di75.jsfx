@@ -1,10 +1,39 @@
 // di75 - by Dwight Ivany
-// Sound-equivalent simplified code of the Stillwell 1175 compressor JSFX
-// by Thomas Scott Stillwell. Output is identical to di76/the 1175 normal
-// modes; dead code and no-op variables have been removed.
-// Original source: https://github.com/stillwellaudio/jsfx/blob/master/1175
-// The copyright notice, license conditions and disclaimer below are retained
-// verbatim from the original source (BSD license).
+// di75 with selectable TUKAN interfaces and clickable value entry:
+//   GUI mode 0 (default): "Classic" PNG GUI - framed knob images (HexKnob.png),
+//     a ZenoMOD-style needle VU for gain reduction, blue faceplate.
+//   GUI mode 1: "GUI 1 White" - code-drawn white knobs (skin of the BL-1C
+//     GUI 1 family) with input/gain-reduction/output bar meters.
+//   GUI mode 2: "Generic" - plain REAPER sliders, no custom canvas.
+// Select via the "GUI:" text (click, both canvas modes) or the "Gui mode"
+// dropdown (generic mode). Both canvas modes share the same knob positions
+// and the same click-a-label-to-type-a-value input boxes (Enter commits,
+// Escape cancels). Editing follows Geraint Luff's ui-lib textbox pattern
+// (cursor + selection, rebuild-based string edits). Gain accepts decimals;
+// the other knobs accept integers only.
+// A mono/stereo switch (slider 23, default Stereo) sits on the VU in PNG
+// mode (PlasticSwitch.png) and as a plain button in White mode. Mono engages
+// the exact mondi.jsfx logic - spl0 = spl1 = (spl0+spl1)*0.5 after the
+// makeup gain - and is fully out of the signal path when Stereo.
+// The audio code and the slider block (slots 1,5,9,13,17,21 = DSP controls,
+// slot 22 = GUI mode, slot 23 = mono, "-reserved" spacers between) are
+// identical to di75.jsfx, so saved sessions and slider values stay
+// interchangeable between di75, di75-tuk and di75 (sessions saved
+// before slots 22/23 existed load them as 0 = PNG classic / stereo).
+// Deliberate differences here: ratio is continuous (no snapping), and the
+// defaults are high pass 80 Hz (filter active on new instances) and
+// threshold -12 dB.
+// GUI library: tk_gui_tools.jsfx-inc by Tukan_Studios - "free as in free
+// beer", may be used, modified and shared for JSFX plugins; parts of the
+// VU-meter code with friendly permission from ZenoMOD (chris-s, ZenoMOD).
+//   https://stash.reaper.fm/v/53055/tk-gui-tools.zip
+// The layouts are adapted from the "Blue One Compressor BL-1C" example
+// (MIT License, Copyright (c) 2026 JClones / Tukan):
+//   https://github.com/TukanStudios/TUKAN_STUDIOS_PLUGINS
+// PNG files required next to this plugin (from the library zip + BL-1C):
+//   HexKnob.png (101 stacked knob frames), Transtparent_Black_VU.png (VU dial),
+//   VU_Shadow.png, Glow_VU.png (VU dressing), PlasticSwitch.png (mono switch)
+// DSP origin/credits: see di75.jsfx (Stillwell 1175, BSD, retained below).
 
 // Copyright 2006, Thomas Scott Stillwell
 // All rights reserved.
@@ -30,107 +59,562 @@
 //STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF 
 //THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-desc:di75 Compressor (Dwight) [sound-equivalent simplified 1175]
-desc:di75 FAST Attack Compressor with Program-Dependent Release
+desc:di75 FAST Attack Compressor
 //tags: dynamics compressor
-//author: Stillwell (original 1175), Dwight Ivany (di75)
+//author: Stillwell (original 1175), Dwight Ivany (di75/di75), Tukan_Studios (GUI library + art), JClones (BL-1C layout reference)
 
-slider1:0<-60,0,0.1>Threshold (dB)
-slider2:0<0,4,1{4,8,12,20,All}>Ratio
-slider3:0<-20,20,0.1>Gain (dB)
-slider4:20<20,2000,10>Attack (uS)
-slider5:250<20,1000,1>Release (mS)
+slider1:80<0,400,20>High Pass (Hz, 0 = off)
+slider2:0<0,1,1>-reserved
+slider3:0<0,1,1>-reserved
+slider4:0<0,1,1>-reserved
+slider5:-12<-60,0,0.1>Threshold (dB)
+slider6:0<0,1,1>-reserved
+slider7:0<0,1,1>-reserved
+slider8:0<0,1,1>-reserved
+slider9:4<4,20,0.1>Ratio // continuous in di75 (di75/di75-tuk snap to 4/8/12/20)
+slider10:0<0,1,1>-reserved
+slider11:0<0,1,1>-reserved
+slider12:0<0,1,1>-reserved
+slider13:0<-20,20,0.1>Gain (dB)
+slider14:0<0,1,1>-reserved
+slider15:0<0,1,1>-reserved
+slider16:0<0,1,1>-reserved
+slider17:20<20,2000,10>Attack (uS)
+slider18:0<0,1,1>-reserved
+slider19:0<0,1,1>-reserved
+slider20:0<0,1,1>-reserved
+slider21:250<20,1000,1>Release (mS)
+slider22:0<0,2,1{PNG Classic,GUI 1 White,Generic sliders}>Gui mode
+slider23:0<0,1,1{Stereo,Mono}>Mono
 
 in_pin:left input
 in_pin:right input
 out_pin:left output
 out_pin:right output
 
+filename:0,HexKnob.png
+filename:1,Transtparent_Black_VU.png
+filename:2,VU_Shadow.png
+filename:3,Glow_VU.png
+filename:4,PlasticSwitch.png
+
+import tk_gui_tools.jsfx-inc
+
+options: no_meter // tell REAPER to not draw its I/O meter strips on the window edges
+
 @init
+  gfx_ext_retina=1;
+
   log2db = 8.6858896380650365530225783783321; // 20 / ln(10)
   db2log = 0.11512925464970228420089957273422; // ln(10) / 20
-  ratatcoef = exp(-1/(0.00001 * srate));
-  ratrelcoef = exp(-1/(0.5 * srate));
-  gr_meter = 1;
-  gr_meter_decay = exp(1/(1*srate));
+
+  // needle VU for gain reduction (PNG mode): fed with grv (1 = no reduction)
+  GRMeter.vu_meter_init(0,1);
+  GRMeter.nd_posL = 1; // needle at rest
+
+  // bar meters for the White mode
+  Left_In.reset_meter();
+  Right_In.reset_meter();
+  Left_Out.reset_meter();
+  Right_Out.reset_meter();
+  reduct.reset_gr_meter();
+
+  // The tk_gui_tools library pattern: coefficient calculation lives here
+  // (what @slider would normally do). @slider only sets a flag and @block
+  // runs this function, so both slider moves and knob moves end up here.
+  function slidercode() (
+    // di75 uses integer values for every knob except Gain (decimals):
+    // snap on any slider change so typed, displayed and stored values agree.
+    slider1 = floor(slider1 + 0.5);
+    slider5 = floor(slider5 + 0.5);
+    slider9 = floor(slider9 + 0.5);
+    slider17 = floor(slider17 + 0.5);
+    slider21 = floor(slider21 + 0.5);
+
+    hpcutoff = slider1;
+    hpb1 = exp(-4*$pi * hpcutoff / srate);
+    hpa0 = (hpb1 + 1) * 0.5;
+
+    thresh = slider5;
+    threshv = exp(thresh * db2log);
+
+    ratio = slider9; // continuous 4-20 in this variant (no snapping)
+    makeup = slider13;
+    makeupv = exp(makeup * db2log);
+    atcoef = exp(-1/((slider17/1000000) * srate));
+    relcoef = exp(-1/((slider21/1000) * srate));
+  );
+
+  // Value input box, shown while edit_knob == slider_. Call sites set
+  // edit_knob, pre-fill #edit_buf with the current value and select it all.
+  // Keyboard model and string editing follow Geraint Luff's ui-lib textbox
+  // (Echo Cycles): cursor (edit_cur) + selection anchor (edit_trail), and
+  // every change REBUILDS the string with strcpy_substr/strcpy_from/strcat -
+  // writing NUL via str_setchar does not reliably shorten a string.
+  // Keys: digits, '-' (first character only), '.' (Gain only, one per value),
+  // Backspace/Delete, Left/Right (Shift extends selection), Home/End,
+  // Ctrl+A select all. Enter commits (empty box cancels), Escape cancels,
+  // clicking another knob's label switches there and discards this edit.
+  function value_entry(cx_, cy_, slider_, min_, max_, frac_) local (c, len, v, sg, fr, dp, i, ch, lo, hi, allow, tw, th, w1, w2, sx, selx, blink, best_i, best_d, bx, by) (
+    len = strlen(#edit_buf);
+    edit_cur = min(edit_cur, len);
+    edit_trail = min(edit_trail, len);
+
+    // ---- keyboard ----
+    while ((c = gfx_getchar()) > 0) (
+      c == 13 ? ( // Enter: commit
+        len > 0 ? (
+          v = 0; sg = 1; fr = 0; dp = 0; i = 0;
+          while (i < len) (
+            ch = str_getchar(#edit_buf, i);
+            ch == 45 ? sg = -1 : (
+              ch == 46 ? dp = 1 : (
+                v = v*10 + ch - 48;
+                dp ? fr += 1;
+              );
+            );
+            i += 1;
+          );
+          v = sg * v / (10^fr);
+          slider(slider_) = min(max_, max(min_, v));
+          slider_update(slider_);
+          flag_run_slidercode = 1;
+        );
+        edit_knob = 0;
+      ) : c == 27 ? ( // Escape: cancel
+        edit_knob = 0;
+      ) : c == 1 ? ( // Ctrl+A: select all
+        edit_cur = 0; edit_trail = len;
+      ) : c == 8 || c == 6579564 ? ( // Backspace / Delete
+        lo = min(edit_cur, edit_trail); hi = max(edit_cur, edit_trail);
+        lo == hi ? ( c == 8 ? lo = max(lo-1, 0) : hi = min(hi+1, len); );
+        strcpy_substr(#ve_a, #edit_buf, 0, lo);
+        strcpy_from(#ve_b, #edit_buf, hi);
+        strcat(#ve_a, #ve_b);
+        strcpy(#edit_buf, #ve_a);
+        edit_cur = edit_trail = lo;
+        len = strlen(#edit_buf);
+      ) : c == 1818584692 ? ( // Left
+        edit_cur = max(edit_cur - 1, 0);
+        mouse_shift == 0 ? edit_trail = edit_cur;
+      ) : c == 1919379572 ? ( // Right
+        edit_cur = min(edit_cur + 1, len);
+        mouse_shift == 0 ? edit_trail = edit_cur;
+      ) : c == 1752132965 ? ( // Home
+        edit_cur = edit_trail = 0;
+      ) : c == 6647396 ? ( // End
+        edit_cur = edit_trail = len;
+      ) : c >= 32 && c < 127 ? ( // printable
+        ch = 0;
+        c >= 48 && c <= 57 ? ch = c : c == 45 ? ch = 45 : (c == 46 && frac_) ? ch = 46;
+        ch ? (
+          lo = min(edit_cur, edit_trail); hi = max(edit_cur, edit_trail);
+          allow = 0;
+          ch >= 48 && ch <= 57 ? allow = 1 : (
+            ch == 45 ? ( lo == 0 ? allow = 1; ) : (
+              i = 0; dp = 0; // '.' allowed only if the buffer has none yet
+              while (i < len) ( str_getchar(#edit_buf, i) == 46 ? dp = 1; i += 1; );
+              dp == 0 ? allow = 1;
+            );
+          );
+          allow && len < 8 ? (
+            strcpy_substr(#ve_a, #edit_buf, 0, lo);
+            str_setchar(#ve_a, lo, ch);
+            strcpy_from(#ve_b, #edit_buf, hi);
+            strcat(#ve_a, #ve_b);
+            strcpy(#edit_buf, #ve_a);
+            edit_cur = edit_trail = lo + 1;
+            len = strlen(#edit_buf);
+          );
+        );
+      );
+    );
+
+    // ---- mouse: click places the cursor, double-click selects all ----
+    area_mouse_detect(cx_-34, cy_-11, 68, 22, 4) ? (
+      edit_cur = len; edit_trail = 0;
+    ) : area_mouse_detect(cx_-34, cy_-11, 68, 22, 1) ? (
+      best_i = 0; best_d = 999999999;
+      gfx_measurestr(#edit_buf, tw, th);
+      i = 0;
+      while (i <= len) (
+        strcpy_substr(#ve_a, #edit_buf, 0, i);
+        gfx_measurestr(#ve_a, w1, th);
+        dp = abs(mouse_x - (cx_*TK_GUI_Scaling - tw/2 + w1));
+        dp < best_d ? ( best_d = dp; best_i = i; );
+        i += 1;
+      );
+      edit_cur = best_i;
+      mouse_shift == 0 ? edit_trail = edit_cur;
+    );
+
+    // ---- draw box, selection, cursor, text ----
+    lo = min(edit_cur, edit_trail); hi = max(edit_cur, edit_trail);
+    bx = cx_*TK_GUI_Scaling; by = cy_*TK_GUI_Scaling;
+    gfx_r = gfx_g = gfx_b = 1; gfx_a = 1;
+    gfx_rect(bx - 34*TK_GUI_Scaling, by - 11*TK_GUI_Scaling, 68*TK_GUI_Scaling, 22*TK_GUI_Scaling);
+    rgb(0,0,0);
+    draw_rect(cx_-34, cy_-11, 68, 22, 1);
+    gfx_measurestr(#edit_buf, tw, th);
+    sx = bx - tw/2;
+    strcpy_substr(#ve_a, #edit_buf, 0, lo);
+    gfx_x = sx; gfx_y = by - th/2;
+    gfx_drawstr(#ve_a); // gfx_x advances to the end of the drawn part
+    lo < hi ? ( // selection: black bar, white text
+      strcpy_substr(#ve_b, #edit_buf, lo, hi - lo);
+      gfx_measurestr(#ve_b, w2, th);
+      selx = gfx_x;
+      gfx_r = gfx_g = gfx_b = 0; gfx_a = 1;
+      gfx_rect(selx, by - th*0.62, w2, th*1.24);
+      gfx_r = gfx_g = gfx_b = 1;
+      gfx_drawstr(#ve_b);
+      rgb(0,0,0);
+    ) : ( // no selection: blinking cursor line
+      blink = time_precise(); blink = blink - floor(blink);
+      blink < 0.5 ? gfx_line(gfx_x, by - th*0.62, gfx_x, by + th*0.62);
+    );
+    strcpy_from(#ve_a, #edit_buf, hi);
+    gfx_drawstr(#ve_a);
+  );
 
 @slider
-  thresh = slider1;
-  threshv = exp(thresh * db2log);
 
-  ratio = (slider2==0 ? 4 : (slider2==1 ? 8 : (slider2 == 2 ? 12 : (slider2 == 3 ? 20 : 20 ))));
-  allin = slider2 == 4;
-  makeup = slider3;
-  makeupv = exp(makeup * db2log);
-  atcoef = exp(-1/((slider4/1000000) * srate));
-  relcoef = exp(-1/((slider5/1000) * srate));
+  flag_run_slidercode = 1;
+
+@block
+
+  flag_run_slidercode ? (
+     flag_run_slidercode = 0;
+     slidercode();
+  );
 
 @sample
+  // input bar meters for the White GUI (pure analysis, does not touch audio)
+  Left_In.feed_meter(spl0, -40);
+  Right_In.feed_meter(spl1, -40);
+
+  // high-pass filter, first in the audio path; 0 = off (bit-transparent)
+  slider1 > 0 ? (
+    hp0 = (spl0 - old_spl0) * hpa0 + hp0 * hpb1;
+    hp1 = (spl1 - old_spl1) * hpa0 + hp1 * hpb1;
+    old_spl0 = spl0;
+    old_spl1 = spl1;
+    spl0 = hp0;
+    spl1 = hp1;
+  );
+
   det = max(abs(spl0), abs(spl1));
 
   overdb = max(0, log2db * log(det/threshv));
 
-  overdb - rundb > 5 ? (averatio = 4;);
-
   overdb > rundb ? (
     rundb = overdb + atcoef * (rundb - overdb);
-    runratio = averatio + ratatcoef * (runratio - averatio);
   ) : (
     rundb = overdb + relcoef * (rundb - overdb);
-    runratio = averatio + ratrelcoef * (runratio - averatio);
   );
   overdb = rundb;
-  averatio = runratio;
 
-  allin ? (
-    cratio = 12 + averatio;
-  ) : (
-    cratio = ratio;
-  );
-
-  grv = exp(-overdb * (cratio-1)/cratio * db2log);
-
-  grv < gr_meter ? gr_meter=grv : ( gr_meter*=gr_meter_decay; gr_meter>1?gr_meter=1; );
+  grv = exp(-overdb * (ratio-1)/ratio * db2log);
 
   spl0 *= grv * makeupv;
   spl1 *= grv * makeupv;
 
-
-@gfx 0 32 // request horizontal/vertical heights (0 means dont care)
-
-  gr_meter *= exp(1/30); gr_meter>1?gr_meter=1; // decay meter here so if the audio processing stops it doesnt "stick"
-  gfx_r=1; gfx_g=gfx_b=0; gfx_a=0.8;
-
-  meter_bot=20;
-  meter_h=min(gfx_h,32);
-  xscale=gfx_w*20/meter_bot;
-
-  gfx_y=0;
-  gfx_x=gfx_w + log10(gr_meter)*xscale;
-  gfx_rectto(gfx_w,meter_h);
-
-  gfx_r=gfx_g=gfx_b=1.0; gfx_a=0.6;
-
-  s2=sqrt(2)/2;
-  g = s2;
-  while(
-    gfx_x=gfx_w + log10(g)*xscale;
-    gfx_x >= 0 ? 
-    (
-      gfx_y=0;
-      gfx_lineto(gfx_x,meter_h,0);
-      gfx_y=meter_h-gfx_texth;
-      gfx_x+=2;
-      gfx_drawnumber(log10(g)*20,0);
-      gfx_drawchar($'d');
-      gfx_drawchar($'B');
-    );
-    g*=s2;
-    gfx_x >=0;
+  // mono switch (mondi.jsfx logic): averages the channels. Guarded so Stereo
+  // leaves the signal path untouched (bit-transparent).
+  slider23 > 0 ? (
+    spl0 = spl1 = (spl0 + spl1) * 0.5;
   );
-  gfx_a=1;
 
-  gfx_x=0; gfx_y=meter_h/2 - gfx_texth/2;
-  gfx_drawnumber(log10(gr_meter)*20,1);
-  gfx_drawchar($'d');
-  gfx_drawchar($'B');
+  // meters (pure analysis)
+  Left_Out.feed_meter(spl0, -60);
+  Right_Out.feed_meter(spl1, -60);
+  reduct.feed_gr_meter(grv, 20);
+  GRMeter.feed_vu_meter(grv);
+
+  // peak-hold reset about 3 times per second
+  reset_cnt += 1;
+  reset_cnt >= srate/3 ? (
+    reduct.reset_gr_meter_min();
+    Left_In.reset_meter_max();
+    Right_In.reset_meter_max();
+    Left_Out.reset_meter_max();
+    Right_Out.reset_meter_max();
+    reset_cnt = 0;
+  );
+
+@gfx 870 300
+
+gui_mode = floor(slider22 + 0.5); // 0 = PNG classic, 1 = GUI 1 White, 2 = generic sliders
+gui_mode == 2 ? edit_knob = 0;
+
+// slider panel: only in generic mode (incl. the Gui mode / Mono dropdowns)
+slider_show(2097151, gui_mode == 2); // 2097151 = 2^21-1 = bitmask for sliders 1..21
+slider_show(slider22, gui_mode == 2);
+slider_show(slider23, gui_mode == 2);
+
+gui_mode < 2 ? ( // custom canvas modes
+
+start_gfx(870,300,300); // canvas size from @gfx, 300 = mouse sensitivity
+
+// keep the key queue clean while no input box is open (edit_knob = 0)
+edit_knob == 0 ? ( while (gfx_getchar() > 0); );
+
+// faceplate + text color per mode
+gui_mode == 0 ? ( rgb(30,70,175); gfx_rect(0,0,gfx_w,gfx_h); bisque(1); ) : ( rgb(220,220,220); gfx_rect(0,0,gfx_w,gfx_h); rgb(0,0,0); );
+
+// GUI mode selector: click for a menu (in generic mode use the dropdown)
+// top-right corner - clear of the knob arc labels on the left
+set_xy(748,8);
+fontsize(12);
+gui_mode == 0 ? sprintf(#TK_gfxlib_Label,"GUI: PNG CLASSIC") : sprintf(#TK_gfxlib_Label,"GUI: WHITE");
+gfx_drawstr(#TK_gfxlib_Label);
+area_mouse_detect(743,4,115,18,1) && mouse_click ? (
+  gui_menu = gfx_showmenu("PNG Classic|GUI 1 White|Generic sliders");
+  gui_menu > 0 ? ( slider22 = gui_menu - 1; slider_update(22); edit_knob = 0; );
+);
+
+// knob layout: x, y, size, slider, min, max, default
+// two rows of three; gain under ratio, identical in both custom modes
+HighPass.knob_config(30,40,80,1,0,400,80);
+Threshold.knob_config(200,40,80,5,-60,0,-12);
+Ratio.knob_config(370,40,80,9,4,20,4);
+Attack.knob_config(30,185,80,17,20,2000,20);
+Release.knob_config(200,185,80,21,20,1000,250);
+Gain.knob_config(370,185,80,13,-20,20,0);
+
+HighPass.knob_many_labels(3);   // 0, 200, 400
+Threshold.knob_many_labels(7);  // -60 .. 0
+Ratio.knob_many_labels(5);      // 4, 8, 12, 16, 20
+Attack.knob_many_labels(3);     // 20, (mid unlabeled), 2000
+Release.knob_many_labels(3);    // 20, (mid unlabeled), 1000
+Gain.knob_many_labels(5);       // -20 .. 20
+
+// white-mode knob colors (ignored by the PNG knob images)
+HighPass.knob_outline(0,0,0);
+Threshold.knob_outline(0,0,0);
+Ratio.knob_outline(0,0,0);
+Attack.knob_outline(0,0,0);
+Release.knob_outline(0,0,0);
+Gain.knob_outline(0,0,0);
+HighPass.knob_infill(250,250,250,255);
+Threshold.knob_infill(250,250,250,255);
+Ratio.knob_infill(250,250,250,255);
+Attack.knob_infill(250,250,250,255);
+Release.knob_infill(250,250,250,255);
+Gain.knob_infill(250,250,250,255);
+
+knobdistance = 1.3;
+
+// knob images: HexKnob.png is 100x10100 = 101 stacked frames
+// the label under each knob is clickable in BOTH modes (value input box)
+fontsize(14);
+
+// ---- High Pass ----
+gui_mode == 0 ? (
+  HighPass.knob_png(0,101,1.2);
+  fontsize(15);
+  #TK_gfxlib_Label = "0";   HighPass.knob_label(1,knobdistance);
+  #TK_gfxlib_Label = "200"; HighPass.knob_label(2,knobdistance);
+  #TK_gfxlib_Label = "400"; HighPass.knob_label(3,knobdistance);
+) : (
+  HighPass.knob();
+  fontsize(12);
+  HighPass.knob_label_all_dots(1.3,1.3);
+  HighPass.knob_all_labels(1.5,0);
+);
+fontsize(14);
+edit_knob == 1 ? value_entry(70,140,1,0,400,0) : (
+  area_mouse_detect(10,130,120,20,1) && mouse_click ? (edit_knob = 1; sprintf(#edit_buf,"%d",floor(slider1+0.5)); edit_cur = strlen(#edit_buf); edit_trail = 0;);
+  slider1 == 0 ? sprintf(#TK_gfxlib_Label,"HIGH PASS OFF") : sprintf(#TK_gfxlib_Label,"HIGH PASS %d",slider1);
+  HighPass.knob_label(0,1.5);
+);
+
+// ---- Threshold ----
+gui_mode == 0 ? (
+  Threshold.knob_png(0,101,1.2);
+  fontsize(15);
+  #TK_gfxlib_Label = "-60"; Threshold.knob_label(1,knobdistance);
+  #TK_gfxlib_Label = "-50"; Threshold.knob_label(2,knobdistance);
+  #TK_gfxlib_Label = "-40"; Threshold.knob_label(3,knobdistance);
+  #TK_gfxlib_Label = "-30"; Threshold.knob_label(4,knobdistance);
+  #TK_gfxlib_Label = "-20"; Threshold.knob_label(5,knobdistance);
+  #TK_gfxlib_Label = "-10"; Threshold.knob_label(6,knobdistance);
+  #TK_gfxlib_Label = "0";   Threshold.knob_label(7,knobdistance);
+) : (
+  Threshold.knob();
+  fontsize(12);
+  Threshold.knob_label_all_dots(1.3,1.3);
+  Threshold.knob_all_labels(1.5,0);
+);
+fontsize(14);
+edit_knob == 5 ? value_entry(240,140,5,-60,0,0) : (
+  area_mouse_detect(180,130,120,20,1) && mouse_click ? (edit_knob = 5; sprintf(#edit_buf,"%d",floor(slider5+0.5)); edit_cur = strlen(#edit_buf); edit_trail = 0;);
+  sprintf(#TK_gfxlib_Label,"THRESHOLD %d",floor(slider5+0.5));
+  Threshold.knob_label(0,1.5);
+);
+
+// ---- Ratio ----
+gui_mode == 0 ? (
+  Ratio.knob_png(0,101,1.2);
+  fontsize(15);
+  #TK_gfxlib_Label = "4";  Ratio.knob_label(1,knobdistance);
+  #TK_gfxlib_Label = "8";  Ratio.knob_label(2,knobdistance);
+  #TK_gfxlib_Label = "12"; Ratio.knob_label(3,knobdistance);
+  #TK_gfxlib_Label = "16"; Ratio.knob_label(4,knobdistance);
+  #TK_gfxlib_Label = "20"; Ratio.knob_label(5,knobdistance);
+) : (
+  Ratio.knob();
+  fontsize(12);
+  Ratio.knob_label_all_dots(1.3,1.3);
+  Ratio.knob_all_labels(1.5,0);
+);
+fontsize(14);
+edit_knob == 9 ? value_entry(410,140,9,4,20,0) : (
+  area_mouse_detect(350,130,120,20,1) && mouse_click ? (edit_knob = 9; sprintf(#edit_buf,"%d",floor(slider9+0.5)); edit_cur = strlen(#edit_buf); edit_trail = 0;);
+  sprintf(#TK_gfxlib_Label,"RATIO %d",floor(slider9+0.5));
+  Ratio.knob_label(0,1.5);
+);
+
+// ---- Attack ----
+gui_mode == 0 ? (
+  Attack.knob_png(0,101,1.2);
+  fontsize(15);
+  #TK_gfxlib_Label = "20";   Attack.knob_label(1,knobdistance);
+  #TK_gfxlib_Label = "";     Attack.knob_label(2,knobdistance);
+  #TK_gfxlib_Label = "2000"; Attack.knob_label(3,knobdistance);
+) : (
+  Attack.knob();
+  fontsize(12);
+  Attack.knob_label_all_dots(1.3,1.3);
+  Attack.knob_all_labels(1.5,0);
+);
+fontsize(14);
+edit_knob == 17 ? value_entry(70,285,17,20,2000,0) : (
+  area_mouse_detect(10,275,120,20,1) && mouse_click ? (edit_knob = 17; sprintf(#edit_buf,"%d",floor(slider17+0.5)); edit_cur = strlen(#edit_buf); edit_trail = 0;);
+  sprintf(#TK_gfxlib_Label,"ATTACK uS %d",floor(slider17+0.5));
+  Attack.knob_label(0,1.5);
+);
+
+// ---- Release ----
+gui_mode == 0 ? (
+  Release.knob_png(0,101,1.2);
+  fontsize(15);
+  #TK_gfxlib_Label = "20";   Release.knob_label(1,knobdistance);
+  #TK_gfxlib_Label = "";     Release.knob_label(2,knobdistance);
+  #TK_gfxlib_Label = "1000"; Release.knob_label(3,knobdistance);
+) : (
+  Release.knob();
+  fontsize(12);
+  Release.knob_label_all_dots(1.3,1.3);
+  Release.knob_all_labels(1.5,0);
+);
+fontsize(14);
+edit_knob == 21 ? value_entry(240,285,21,20,1000,0) : (
+  area_mouse_detect(180,275,120,20,1) && mouse_click ? (edit_knob = 21; sprintf(#edit_buf,"%d",floor(slider21+0.5)); edit_cur = strlen(#edit_buf); edit_trail = 0;);
+  sprintf(#TK_gfxlib_Label,"RELEASE mS %d",floor(slider21+0.5));
+  Release.knob_label(0,1.5);
+);
+
+// ---- Gain ----
+gui_mode == 0 ? (
+  Gain.knob_png(0,101,1.2);
+  fontsize(15);
+  #TK_gfxlib_Label = "-20"; Gain.knob_label(1,knobdistance);
+  #TK_gfxlib_Label = "-10"; Gain.knob_label(2,knobdistance);
+  #TK_gfxlib_Label = "0";   Gain.knob_label(3,knobdistance);
+  #TK_gfxlib_Label = "10";  Gain.knob_label(4,knobdistance);
+  #TK_gfxlib_Label = "20";  Gain.knob_label(5,knobdistance);
+) : (
+  Gain.knob();
+  fontsize(12);
+  Gain.knob_label_all_dots(1.3,1.3);
+  Gain.knob_all_labels(1.5,0);
+);
+fontsize(14);
+edit_knob == 13 ? value_entry(410,285,13,-20,20,1) : (
+  area_mouse_detect(350,275,120,20,1) && mouse_click ? (edit_knob = 13; sprintf(#edit_buf,"%.1f",slider13); edit_cur = strlen(#edit_buf); edit_trail = 0;);
+  sprintf(#TK_gfxlib_Label,"GAIN %.1f",slider13);
+  Gain.knob_label(0,1.5);
+);
+
+// ---- meters: needle VU (PNG) or in/GR/out bars (White) ----
+// plus the mono/stereo switch in the bottom-right of the meter area
+gui_mode == 0 ? (
+  Set_VR_needle_color(20,20,20);
+  gfx_dest = 120;
+  bisque(1);
+  draw_vu_background(520,40,250, 3); // glow (Glow_VU.png)
+  draw_vu_background(520,40,250, 2); // shadow (VU_Shadow.png)
+  GRMeter.draw_vu_meter(520,40,250, 20, 20, 20, 1); // dial (Transtparent_Black_VU.png) + needle
+  rgb(40,40,40);
+  fontsize(16);
+  set_xy(587,115);
+  gfx_drawstr("di75");
+  fontsize(19);
+  set_xy(730,120);
+  gfx_drawstr("GR");
+  // mono switch: plastic switch image centered below the VU; "Stereo" above
+  // and "Mono" below bracket the toggle so it reads as where the switch points
+  mono.button_config(612,212,60,60,23,1,1);
+  mono.button_png(4,200,200,0.3);
+  fontsize(12);
+  bisque(1);
+  set_xy(mono.x-4,mono.y-16);
+  gfx_drawstr("Stereo");
+  set_xy(mono.x-4,mono.y+66);
+  gfx_drawstr("Mono");
+) : (
+  mmx=520; mmy=35; mmh=230; mmw=25;
+  fontsize(12);
+  draw_vertical_scale(mmx,mmy,mmw*2.5,mmh,-60,6,6);
+  draw_vertical_scale(mmx+4.25*mmw,mmy,mmw,mmh,-20,0,2);
+  draw_vertical_scale(mmx+7*mmw,mmy,mmw*2.5,mmh,-60,6,6);
+  gfx_a=0.8;
+  rgb(150,150,150); // vu body (white skin value)
+  Left_In.draw_vertical_meter(mmx,mmy,mmw,mmh,-60,6,1,0);
+  Right_In.draw_vertical_meter(mmx+1.5*mmw,mmy,mmw,mmh,-60,6,1,0);
+  reduct.draw_vertical_GR_meter(mmx+4.25*mmw,mmy,mmw,mmh,-20,0,1,0);
+  Left_Out.draw_vertical_meter(mmx+7*mmw,mmy,mmw,mmh,-60,6,1,0);
+  Right_Out.draw_vertical_meter(mmx+8.5*mmw,mmy,mmw,mmh,-60,6,1,0);
+  rgb(0,0,0); // peak-hold line
+  gfx_a=1;
+  Left_In.draw_vertical_meter(mmx,mmy,mmw,mmh,-60,6,0,10);
+  Right_In.draw_vertical_meter(mmx+1.5*mmw,mmy,mmw,mmh,-60,6,0,10);
+  reduct.draw_vertical_GR_meter(mmx+4.25*mmw,mmy,mmw,mmh,-20,0,0,10);
+  Left_Out.draw_vertical_meter(mmx+7*mmw,mmy,mmw,mmh,-60,6,0,10);
+  Right_Out.draw_vertical_meter(mmx+8.5*mmw,mmy,mmw,mmh,-60,6,0,10);
+  rgb(0,0,0);
+  draw_vertical_scale_labels(mmx,mmy,mmw*2.5,mmh,-60,6,6);
+  draw_vertical_scale_labels(mmx+4.25*mmw,mmy,mmw,mmh,-20,0,2);
+  draw_vertical_scale_labels(mmx+7*mmw,mmy,mmw*2.5,mmh,-60,6,6);
+  // mono switch: plain white-skin button at the right of the meters; the
+  // active setting's word is inside the button, "Stereo" above and "Mono"
+  // below bracket the toggle
+  mono.button_config(788,138,60,60,23,1,1);
+  mono.button_outline(3,0,0,0,170,170,170);
+  mono.button_infill(250,250,250,190,190,190);
+  mono.button();
+  rgb(0,0,0); // button() leaves the color at its fill colors - set label color
+  slider23 ? sprintf(#TK_gfxlib_Label,"Mono") : sprintf(#TK_gfxlib_Label,"Stereo");
+  mono.button_label(5,0,0);
+  fontsize(12);
+  set_xy(mono.x-4,mono.y-16);
+  gfx_drawstr("Stereo");
+  set_xy(mono.x-4,mono.y+66);
+  gfx_drawstr("Mono");
+  fontsize(13);
+  rgb(0,0,0);
+  set_xy(536,272);
+  gfx_drawstr("INPUT");
+  set_xy(613,272);
+  gfx_drawstr("REDUCT");
+  set_xy(739,272);
+  gfx_drawstr("OUTPUT");
+);
+
+// frame
+brd = gui_mode == 0 ? 40 : 0;
+rgb(brd,brd,brd);
+draw_rect(5,5,860,290,1);
+
+); // end custom canvas modes
