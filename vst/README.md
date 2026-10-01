@@ -1,9 +1,9 @@
 # di75 VST3
 
-VST3 port of the REAPER JSFX compressor `jsfx/di75.jsfx` — a fast-attack
-1175-style stereo compressor (DSP derived from Stillwell 1175, BSD) with the
-same DSP, parameter ranges/defaults, and a vector-drawn replica of the
-"GUI 1 White" skin (no image assets).
+VST3 port of the REAPER JSFX compressor `jsfx/di75.jsfx`. 
+
+A fast stereo compressor (DSP derived from Stillwell 1175, BSD license). Uses a customized vector-drawn replica of the
+"GUI 1 White" skin (no image assets) of the Tukan Components Library UI.
 
 - High-pass filter: 0–400 Hz (0 = off, bit-transparent)
 - Threshold −60–0 dB, Ratio 4–20, Gain (makeup) ±20 dB
@@ -31,12 +31,9 @@ The plugin is written to
 build/di75_artifacts/Release/VST3/di75.vst3
 ```
 
-(JUCE still emits its own British-spelled `di75_artefacts` directory
-internally; a post-build step copies the bundle to the `di75_artifacts`
-spelling above.)
+(JUCE still emits its own British-spelled `di75_artefacts` directory internally; a post-build step copies the bundle to the `di75_artifacts` spelling above.)
 
-Copy that folder to `C:\Program Files\Common Files\VST3` (or point your
-DAW's VST3 search path at it).
+Copy that folder to `C:\Program Files\Common Files\VST3` (or point your DAW's VST3 search path at it).
 
 ## Golden test
 
@@ -63,11 +60,11 @@ python vst/scripts/make_ref.py
 
 Pushing a version tag triggers the `di75 VST3` GitHub Actions workflow,
 which builds, runs the golden test, and creates a GitHub Release with a zip
-of the VST3:
+of the VST3. The tag can be `v1.0.0` or just `1.0.0` - both are accepted:
 
 ```sh
-git tag v1.0.0
-git push origin v1.0.0
+git tag 1.0.0      # or: git tag 1.0.0
+git push origin 1.0.0
 ```
 
 Pushes and pull requests touching `vst/**` run the same build+test without
