@@ -80,33 +80,29 @@ I have the word mono hidden (hence "Mondi") to hide a pile of Waves bloat.
 A simple delay plugin (original source Cockos) that delays the signal +/- 1000 ms, with separate wet and dry mix sliders. A negative delay advances the timing using plugin delay compensation (PDC).
 
 ## simplest-time-adjust
-The same simple delay as above, but stripped down to a single delay amount slider and 100% wet output.
+Super simple delay as above, but stripped down to a single delay amount slider. Default 7ms, which is useful for Haas effect.
 ## di75
-See [[di75]] for a walkthrough of the compressor math and notes on the variables that silently default to zero.
-
-A compressor using the same compression technique as the 1175. Same sliders, same sound (verified bit-identical output against di75 in simulation), but the dead code and no-op variables are gone: the vestigial peak tracker (`maxover`/`runmax`), the RMS scaffolding that collapsed to a plain peak detector (`rmscoef`/`runave`/square/sqrt), the never-enabled `softknee` and `autogain` hooks, the placeholder attack/release temps, and the redundant explicit zeroing in `@init`. I also inlined `grv`, `rpos`, and the attack/release coefficient math. Roughly half the code, identical audio.
-
-The math is documented in di75.md — everything there applies here, minus the removed no-ops.
-
-di75 with selectable TUKAN faces and clickable value entry, all in one plugin (selector in a new slider 22, so sessions from before it existed default to PNG):
-- **PNG Classic** (default): framed knob images (HexKnob.png), blue faceplate, needle VU wired permanently to gain reduction with glow/shadow dressing.
-- **GUI 1 White**: the di75 white skin - code-drawn white knobs with input/gain-reduction/output bar meters and peak-hold lines.
-- **Generic sliders**: plain REAPER sliders, like the plugin had before it grew a GUI.
-
-Pick the UI from the "GUI:" text at the top-right of the canvas modes, or from the "Gui mode" dropdown in generic mode. Both canvas modes share the same compact knob layout (two rows of three, gain under ratio, no title text) and the same click-a-label-to-type input boxes: numbers only, current value pre-filled and selected, Enter commits, Escape cancels, Gain is the only decimal knob - the others are integers everywhere (typed, displayed and dragged values all snap).
-
-A mono/stereo switch (slider 23, default Stereo) sits on the VU dial in PNG mode (BL-1C's PlasticSwitch.png image) and as a plain labelled button in White mode - or as the "Mono" dropdown in generic mode. Mono engages the exact mondi.jsfx logic (`spl0 = spl1 = (spl0+spl1)*0.5`) after the makeup gain, and is completely out of the signal path when Stereo, so Stereo stays bit-transparent. This one needs five PNG files next to the plugin in jsfx/: HexKnob.png, Transtparent_Black_VU.png, VU_Shadow.png, Glow_VU.png (all from the library zip) plus PlasticSwitch.png (from the BL-1C folder of the TUKAN repo) - plus tk_gui_tools.jsfx-inc. Credits: Tukan_Studios library and artwork, ZenoMOD for the VU code, JClones/Tukan BL-1C layout (MIT), Stillwell DSP (BSD). Same DSP and the same DSP slider slots as di75/di75-tuk, with deliberate differences: ratio is continuous 4-20 (no snapping to 4/8/12/20), and the defaults are threshold -12 dB and high pass 80 Hz, so the filter is active on new instances (set it to 0 for the bit-transparent bypass).
-
-Like di75-tuk, the native slider panel is hidden and the edge meters are off. This one needs four PNG files next to the plugin in jsfx/ (all from the library zip): HexKnob.png, Transtparent_Black_VU.png, VU_Shadow.png, Glow_VU.png - plus tk_gui_tools.jsfx-inc. Credits: Tukan_Studios library and artwork, ZenoMOD for the VU code, JClones/Tukan BL-1C layout (MIT), Stillwell DSP (BSD).
-
 A FAST attack compressor based on the Stillwell 1175 JSFX.
 
-The 1175 is modeled on the classic 1176 style FET compressor: ratios 4, 8, 12, 20 and All, with threshold, gain, attack (uS) and release (mS) controls, plus a gain reduction meter. I renamed it di75 and simplified it: I dropped the deprecated "Blown Capacitor" ratio modes, the "All" ratio, and the mix slider, because I want this to be simple. Ratio is now a slider (no dropdown) that snaps to 4, 8, 12 or 20, and there is a simple high-pass filter from my dipass plugin in front, before the fast compressor.
+The 1175 is modeled on the classic 1176 style FET compressor. I renamed it di75 and simplified it: I dropped the deprecated "Blown Capacitor" ratio modes, the "All" ratio, and the mix slider, because I want this to be simple. Ratio is a plain slider, continuous from 4 to 20. There is a simple high-pass filter from my dipass plugin in front, before the fast compressor. Controls: high pass (0 = off), threshold, ratio, gain, attack (uS) and release (mS), plus a gain reduction meter.
 
-**Credit where credit is due:** this is the work of Thomas Scott Stillwell (Stillwell Audio), originally released under the BSD license. The copyright notice, license conditions and disclaimer are retained verbatim at the top of jsfx/di75.jsfx, as the license requires.
+See di75.md for a walkthrough of the compressor math.
+
+**Three faces in one plugin**, selected from the "GUI:" text at the top-right (canvas modes) or the "Gui mode" dropdown (generic mode). The selector lives in slider 22, so sessions saved before the GUI existed load as PNG Classic:
+- **PNG Classic** (default): framed knob images (HexKnob.png), blue faceplate, needle VU wired permanently to gain reduction with glow/shadow dressing.
+- **GUI 1 White**: code-drawn white knobs with input/gain-reduction/output bar meters and peak-hold lines.
+- **Generic sliders**: plain REAPER sliders, like the plugin had before it grew a GUI.
+
+Both canvas modes share the same compact knob layout (two rows of three, gain under ratio, no title text) and the same click-a-label-to-type input boxes: numbers only, current value pre-filled and selected, Enter commits, Escape cancels. Gain is the only decimal knob - the others are integers everywhere (typed, displayed and dragged values all snap).
+
+A mono/stereo switch (slider 23, default Stereo) sits on the VU dial in PNG mode (BL-1C's PlasticSwitch.png image) and as a plain labelled button in White mode - or as the "Mono" dropdown in generic mode. Mono engages the exact mondi.jsfx logic (`spl0 = spl1 = (spl0+spl1)*0.5`) after the makeup gain, and is completely out of the signal path when Stereo, so Stereo stays bit-transparent.
+
+New instances default to high pass 80 Hz and threshold -12 dB, so the filter is active out of the box (set high pass to 0 for the bit-transparent bypass). The DSP sliders sit in sparse slots (1, 5, 9, 13, 17, 21) with hidden "-reserved" spacers between them, so I can add sliders in future versions without renumbering the saved ones. REAPER's own slider panel and edge meters are hidden in the canvas modes (`slider_show` + `options: no_meter`); slider values are still saved with sessions and remain automatable.
+
+This one needs five PNG files next to the plugin in jsfx/: HexKnob.png, Transtparent_Black_VU.png, VU_Shadow.png, Glow_VU.png (all from the library zip) plus PlasticSwitch.png (from the BL-1C folder of the TUKAN repo) - plus tk_gui_tools.jsfx-inc, which REAPER resolves relative to the plugin, so keep them together.
+
+**Credit where credit is due:** the DSP is the work of Thomas Scott Stillwell (Stillwell Audio), originally released under the BSD license. The copyright notice, license conditions and disclaimer are retained verbatim at the top of jsfx/di75.jsfx, as the license requires.
 
 Original source: https://github.com/stillwellaudio/jsfx/blob/master/1175
 
-di75 with a fancy face: the same compressor and the same sliders, but a "GUI 1 White" interface drawn with the tk_gui_tools library by Tukan_Studios instead of the plain gain-reduction bar. It has knobs for all six controls plus input/gain-reduction/output meters. Because the slider block is identical to di75, saved sessions swap between the two.
-
-The GUI code is the tk_gui_tools.jsfx-inc include file (vendored next to the plugin in jsfx/ — keep the two files together, REAPER resolves the import relative to the plugin). The native REAPER slider panel is hidden (`slider_show(slider, 0)`) and REAPER's edge I/O meter strips are turned off (`options: no_meter`); the knobs and in/GR/out meters in the canvas are the whole UI. Slider values are still saved in sessions and remain automatable. The library is "free as in free beer" for JSFX plugins, with parts of the VU meter code used with friendly permission from ZenoMOD. The white layout is adapted from Tukan's "Blue One Compressor BL-1C" example (MIT). GUI 1 draws everything from code, so no image files are needed. DSP credit is the same as di75: Thomas Scott Stillwell, BSD.
+The GUI library is tk_gui_tools.jsfx-inc by Tukan_Studios - "free as in free beer" for JSFX plugins - with parts of the VU meter code used with friendly permission from ZenoMOD. Both layouts are adapted from Tukan's "Blue One Compressor BL-1C" example (MIT, JClones/Tukan).
