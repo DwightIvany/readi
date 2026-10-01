@@ -51,6 +51,7 @@ desktop.ini
 
 # CMake build dirs (di75 VST3)
 build-vst/
+build-ninja/
 out/
 CMakeCache.txt
 CMakeFiles/
