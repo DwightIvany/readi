@@ -48,3 +48,9 @@ desktop.ini
 .obsidian/
 .~lock.*#
 *.exe
+
+# CMake build dirs (di75 VST3)
+build-vst/
+out/
+CMakeCache.txt
+CMakeFiles/
