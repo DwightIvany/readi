@@ -1,0 +1,6 @@
+# name hp_hz thresh_db ratio gain_db attack_us release_ms mono input_file ref_file
+nulltest 0 0 4 0.0000 20 250 0 nulltest.in.raw nulltest.ref.raw
+comp_sine 0 -20 8 3.5000 100 200 0 comp_sine.in.raw comp_sine.ref.raw
+full_monty 120 -12 4 -6.2000 20 250 0 full_monty.in.raw full_monty.ref.raw
+mono_case 80 -18 12 2.0000 50 300 1 mono_case.in.raw mono_case.ref.raw
+quiet_pass 100 -30 20 6.0000 500 1000 0 quiet_pass.in.raw quiet_pass.ref.raw

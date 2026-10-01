@@ -106,3 +106,5 @@ This one needs five PNG files next to the plugin in jsfx/: HexKnob.png, Transtpa
 Original source: https://github.com/stillwellaudio/jsfx/blob/master/1175
 
 The GUI library is tk_gui_tools.jsfx-inc by Tukan_Studios - "free as in free beer" for JSFX plugins - with parts of the VU meter code used with friendly permission from ZenoMOD. Both layouts are adapted from Tukan's "Blue One Compressor BL-1C" example (MIT, JClones/Tukan).
+
+**VST3:** the same compressor is also ported to a real VST3 in `vst/` (JUCE, C++). The DSP is bit-identical to the JSFX (verified by a golden test against a float64 model of the JSFX math), parameters are saved by ID so renumbering can't happen, and the GUI replicates the PNG Classic skin. GitHub Actions builds and tests it on every push to `vst/`, and pushing a `v*` tag (e.g. `v1.0.0`) automatically creates a GitHub Release with the zipped di75.vst3 - see vst/README.md for build and release details.
