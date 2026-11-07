@@ -14,6 +14,9 @@ desc: Feather Tail
 // Changing Room size writes that size's predelay and decay into the sliders.
 // The starting slider values are Medium, Curved, decay 2.5 s, predelay 33 ms,
 // Warm or Cold = 1, Tail Tone = 4, Mix 20%.
+// The effect window draws those two controls as one 8x8 grid.
+// Below the grid is diffuse.webp, drawn at the grid's size. Diffuse at
+// 0 shows the picture sharp. Moving Diffuse right softens it.
 
 slider1:2.5<0.2,20,0.1>Decay (s)
 slider2:3<0,8,1{Box,Tiny,Small,Medium,Large,Extra-large,Huge,Grand,Spring}>Room size
@@ -381,3 +384,281 @@ spl1 = inp * dry_g + wetR * wet_g;
 
 hw += 1;
 hw >= H ? hw = 0;
+
+// ---------------------------------------------------------------------------
+// The effect window. Warm or Cold is the horizontal axis, 0 at the left.
+// Tail Tone is the vertical axis, 0 at the bottom and 7 at the top.
+// Click or drag a cell to choose one of the 64 pairs. The other controls
+// are the rows on the right. The picture under the grid is diffuse.webp
+// at the same size as the cells. Diffuse 0 leaves it sharp. Higher
+// Diffuse draws it smaller, blurs that copy, then stretches it back.
+// ---------------------------------------------------------------------------
+@gfx 520 476
+gfx_clear = 0x1c1e22;
+gfx_setfont(1, "Arial", 13);
+gfx_a = 1;
+
+cell = 22;
+gap = 3;
+step = cell + gap;
+gx = 16;
+gy = 36;
+grid = 8 * step - gap;
+
+gfx_r = 0.86;
+gfx_g = 0.84;
+gfx_b = 0.78;
+gfx_x = gx;
+gfx_y = 8;
+gfx_drawstr("Warm or Cold");
+gfx_x = gx + grid + 14;
+gfx_y = 8;
+gfx_drawstr("Tail tone");
+
+cy = 0;
+loop(8,
+  cx = 0;
+  loop(8,
+    warm = 1 - cx / 7;
+    cold = cx / 7;
+    tone = (7 - cy) / 7;
+    gfx_r = 0.22 + 0.62 * warm;
+    gfx_g = 0.16 + 0.42 * tone * (0.45 + 0.55 * warm);
+    gfx_b = 0.18 + 0.62 * cold;
+    x = gx + cx * step;
+    y = gy + cy * step;
+    gfx_rect(x, y, cell, cell, 1);
+    (slider6 | 0) == cx && (slider7 | 0) == (7 - cy) ? (
+      gfx_r = 1;
+      gfx_g = 0.95;
+      gfx_b = 0.75;
+      gfx_rect(x - 1, y - 1, cell + 2, cell + 2, 0);
+      gfx_rect(x + 1, y + 1, cell - 2, cell - 2, 0);
+    );
+    cx += 1;
+  );
+  cy += 1;
+);
+
+gfx_r = 0.75;
+gfx_g = 0.72;
+gfx_b = 0.66;
+gfx_x = gx;
+gfx_y = gy + grid + 8;
+gfx_drawstr("warm");
+gfx_x = gx + grid - 28;
+gfx_y = gy + grid + 8;
+gfx_drawstr("cold");
+gfx_x = gx + grid + 10;
+gfx_y = gy - 2;
+gfx_drawstr("bright");
+gfx_x = gx + grid + 10;
+gfx_y = gy + grid - 16;
+gfx_drawstr("dark");
+
+sprintf(#pair, "%d, %d", slider6 | 0, slider7 | 0);
+gfx_r = 0.95;
+gfx_g = 0.93;
+gfx_b = 0.86;
+gfx_x = gx + grid + 10;
+gfx_y = gy + grid / 2 - 8;
+gfx_drawstr(#pair);
+
+// Right-hand rows. Each is a label, a track, and the current value.
+rx = 300;
+rw = 150;
+rh = 16;
+ry = 28;
+
+mouse_cap & 1 && mouse_x >= gx && mouse_x < gx + grid && mouse_y >= gy && mouse_y < gy + grid ? (
+  col = floor((mouse_x - gx) / step);
+  row = floor((mouse_y - gy) / step);
+  col < 0 ? col = 0;
+  col > 7 ? col = 7;
+  row < 0 ? row = 0;
+  row > 7 ? row = 7;
+  slider6 = col;
+  slider7 = 7 - row;
+  slider_automate(slider6);
+  slider_automate(slider7);
+);
+
+gfx_r = 0.78;
+gfx_g = 0.76;
+gfx_b = 0.7;
+gfx_x = rx;
+gfx_y = ry;
+gfx_drawstr("Decay");
+sprintf(#v, "%0.1f s", slider1);
+gfx_x = rx + rw - 36;
+gfx_drawstr(#v);
+t = (slider1 - 0.2) / (20 - 0.2);
+gfx_r = 0.28; gfx_g = 0.30; gfx_b = 0.32;
+gfx_rect(rx, ry + 14, rw, 4, 1);
+gfx_r = 0.78; gfx_g = 0.62; gfx_b = 0.32;
+gfx_rect(rx, ry + 14, rw * t, 4, 1);
+mouse_cap & 1 && mouse_x >= rx && mouse_x < rx + rw && mouse_y >= ry && mouse_y < ry + rh ? (
+  u = (mouse_x - rx) / rw;
+  u < 0 ? u = 0;
+  u > 1 ? u = 1;
+  slider1 = 0.2 + u * (20 - 0.2);
+  slider_automate(slider1);
+);
+
+ry += 28;
+gfx_r = 0.78; gfx_g = 0.76; gfx_b = 0.7;
+gfx_x = rx; gfx_y = ry;
+gfx_drawstr("Room");
+gfx_x = rx + 48;
+(slider2 | 0) == 0 ? gfx_drawstr("Box");
+(slider2 | 0) == 1 ? gfx_drawstr("Tiny");
+(slider2 | 0) == 2 ? gfx_drawstr("Small");
+(slider2 | 0) == 3 ? gfx_drawstr("Medium");
+(slider2 | 0) == 4 ? gfx_drawstr("Large");
+(slider2 | 0) == 5 ? gfx_drawstr("Extra-large");
+(slider2 | 0) == 6 ? gfx_drawstr("Huge");
+(slider2 | 0) == 7 ? gfx_drawstr("Grand");
+(slider2 | 0) == 8 ? gfx_drawstr("Spring");
+t = (slider2 | 0) / 8;
+gfx_r = 0.28; gfx_g = 0.30; gfx_b = 0.32;
+gfx_rect(rx, ry + 14, rw, 4, 1);
+gfx_r = 0.55; gfx_g = 0.62; gfx_b = 0.48;
+gfx_rect(rx, ry + 14, rw * t, 4, 1);
+mouse_cap & 1 && mouse_x >= rx && mouse_x < rx + rw && mouse_y >= ry && mouse_y < ry + rh ? (
+  u = (mouse_x - rx) / rw;
+  u < 0 ? u = 0;
+  u > 1 ? u = 1;
+  slider2 = floor(u * 8 + 0.5);
+  slider2 > 8 ? slider2 = 8;
+  slider_automate(slider2);
+);
+
+ry += 28;
+gfx_r = 0.78; gfx_g = 0.76; gfx_b = 0.7;
+gfx_x = rx; gfx_y = ry;
+gfx_drawstr("Predelay");
+sprintf(#v, "%d ms", slider3 | 0);
+gfx_x = rx + rw - 42;
+gfx_drawstr(#v);
+t = slider3 / 200;
+t > 1 ? t = 1;
+gfx_r = 0.28; gfx_g = 0.30; gfx_b = 0.32;
+gfx_rect(rx, ry + 14, rw, 4, 1);
+gfx_r = 0.45; gfx_g = 0.58; gfx_b = 0.7;
+gfx_rect(rx, ry + 14, rw * t, 4, 1);
+mouse_cap & 1 && mouse_x >= rx && mouse_x < rx + rw && mouse_y >= ry && mouse_y < ry + rh ? (
+  u = (mouse_x - rx) / rw;
+  u < 0 ? u = 0;
+  u > 1 ? u = 1;
+  slider3 = floor(u * 200 + 0.5);
+  slider_automate(slider3);
+);
+
+ry += 28;
+gfx_r = 0.78; gfx_g = 0.76; gfx_b = 0.7;
+gfx_x = rx; gfx_y = ry;
+gfx_drawstr("Shape");
+gfx_x = rx + 52;
+(slider4 | 0) == 0 ? gfx_drawstr("Square");
+(slider4 | 0) == 1 ? gfx_drawstr("Curved");
+(slider4 | 0) >= 2 ? gfx_drawstr("Round");
+t = (slider4 | 0) / 2;
+gfx_r = 0.28; gfx_g = 0.30; gfx_b = 0.32;
+gfx_rect(rx, ry + 14, rw, 4, 1);
+gfx_r = 0.62; gfx_g = 0.52; gfx_b = 0.7;
+gfx_rect(rx, ry + 14, rw * t, 4, 1);
+mouse_cap & 1 && mouse_x >= rx && mouse_x < rx + rw && mouse_y >= ry && mouse_y < ry + rh ? (
+  u = (mouse_x - rx) / rw;
+  u < 0 ? u = 0;
+  u > 1 ? u = 1;
+  slider4 = floor(u * 2 + 0.5);
+  slider_automate(slider4);
+);
+
+ry += 28;
+gfx_r = 0.78; gfx_g = 0.76; gfx_b = 0.7;
+gfx_x = rx; gfx_y = ry;
+gfx_drawstr("Diffuse");
+sprintf(#v, "%d%%", slider5 | 0);
+gfx_x = rx + rw - 32;
+gfx_drawstr(#v);
+t = slider5 / 100;
+gfx_r = 0.28; gfx_g = 0.30; gfx_b = 0.32;
+gfx_rect(rx, ry + 14, rw, 4, 1);
+gfx_r = 0.7; gfx_g = 0.58; gfx_b = 0.4;
+gfx_rect(rx, ry + 14, rw * t, 4, 1);
+mouse_cap & 1 && mouse_x >= rx && mouse_x < rx + rw && mouse_y >= ry && mouse_y < ry + rh ? (
+  u = (mouse_x - rx) / rw;
+  u < 0 ? u = 0;
+  u > 1 ? u = 1;
+  slider5 = floor(u * 100 + 0.5);
+  slider_automate(slider5);
+);
+
+ry += 28;
+gfx_r = 0.78; gfx_g = 0.76; gfx_b = 0.7;
+gfx_x = rx; gfx_y = ry;
+gfx_drawstr("Mix");
+sprintf(#v, "%d%%", slider8 | 0);
+gfx_x = rx + rw - 32;
+gfx_drawstr(#v);
+t = slider8 / 100;
+gfx_r = 0.28; gfx_g = 0.30; gfx_b = 0.32;
+gfx_rect(rx, ry + 14, rw, 4, 1);
+gfx_r = 0.72; gfx_g = 0.72; gfx_b = 0.62;
+gfx_rect(rx, ry + 14, rw * t, 4, 1);
+mouse_cap & 1 && mouse_x >= rx && mouse_x < rx + rw && mouse_y >= ry && mouse_y < ry + rh ? (
+  u = (mouse_x - rx) / rw;
+  u < 0 ? u = 0;
+  u > 1 ? u = 1;
+  slider8 = floor(u * 100 + 0.5);
+  slider_automate(slider8);
+);
+
+// Picture under the grid. Same width and height as the 8x8 cells.
+img_y = gy + grid + 28;
+gfx_r = 0.11;
+gfx_g = 0.12;
+gfx_b = 0.13;
+gfx_a = 1;
+gfx_mode = 0;
+gfx_rect(gx, img_y, grid, grid, 1);
+
+diffuse_loaded == 0 ? (
+  gfx_loadimg(1, "diffuse.webp");
+  gfx_getimgdim(1, diff_w, diff_h);
+  diff_w < 1 ? (
+    gfx_loadimg(1, "diffuse.png");
+    gfx_getimgdim(1, diff_w, diff_h);
+  );
+  diffuse_loaded = 1;
+);
+
+diff_w > 0 && diff_h > 0 ? (
+  diff_amt = slider5 / 100;
+  diff_amt < 0 ? diff_amt = 0;
+  diff_amt > 1 ? diff_amt = 1;
+  diff_amt <= 0 ? (
+    gfx_dest = -1;
+    gfx_blit(1, 1, 0, 0, 0, diff_w, diff_h, gx, img_y, grid, grid);
+  ) : (
+    bw = floor(grid / (1 + diff_amt * 6) + 0.5);
+    bw < 8 ? bw = 8;
+    gfx_setimgdim(2, bw, bw);
+    gfx_dest = 2;
+    gfx_a = 1;
+    gfx_mode = 0;
+    gfx_blit(1, 1, 0, 0, 0, diff_w, diff_h, 0, 0, bw, bw);
+    nblur = floor(diff_amt * 8 + 0.5);
+    nblur < 1 ? nblur = 1;
+    loop(nblur,
+      gfx_x = 0;
+      gfx_y = 0;
+      gfx_blurto(bw, bw);
+    );
+    gfx_dest = -1;
+    gfx_a = 1;
+    gfx_mode = 0;
+    gfx_blit(2, 1, 0, 0, 0, bw, bw, gx, img_y, grid, grid);
+  );
+);
