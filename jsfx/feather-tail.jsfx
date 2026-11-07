@@ -1,0 +1,383 @@
+desc: Feather Tail
+// A clean-room recreation of an easy-to-use reverb from the late 1990s.
+// Many delay lines make a long, clean tail. There is no modulation and
+// no chorus, so the fade does not swirl the way a lot of other reverbs do.
+// This is an approximation of that idea, not a copy of any one product.
+//
+// The tail is eight delay lines. At Warm or Cold = 0 the level falls
+// about 60 dB in twice the Decay time.
+// Warm or Cold runs left to right: 0 is warm and long, 7 is cold and short.
+// Tail Tone runs bottom to top. It does not EQ the early taps. It lets
+// more high frequency energy keep circulating in the tail. From bottom
+// to top the late tail rises about 1 dB at 1 kHz, 4 dB at 2 kHz, 8 dB
+// at 4 kHz, and 10 dB at 8 kHz. Most of that rise is in the first few steps.
+// Changing Room size writes that size's predelay and decay into the sliders.
+// The starting slider values are Medium, Curved, decay 2.5 s, predelay 33 ms,
+// Warm or Cold = 1, Tail Tone = 4, Mix 20%.
+
+slider1:2.5<0.2,20,0.1>Decay (s)
+slider2:3<0,8,1{Box,Tiny,Small,Medium,Large,Extra-large,Huge,Grand,Spring}>Room size
+slider3:33<0,500,1>Predelay (ms)
+slider4:1<0,2,1{Square,Curved,Round}>Shape
+slider5:50<0,100,1>Diffuse (%)
+slider6:1<0,7,1>Warm or Cold
+slider7:4<0,7,1>Tail Tone
+slider8:20<0,100,1>Mix (%)
+slider9:0<-24,12,0.1>Output (dB)
+
+// ---------------------------------------------------------------------------
+// @init runs when the effect loads and when the sample rate changes.
+// It only reserves memory and fills tables. It does not touch the sliders.
+//
+// JSFX memory is one big array. A name used as name[index] is a start
+// address. The blocks below are laid out so they do not overlap.
+// ---------------------------------------------------------------------------
+@init
+// H: length of the input history, in samples. Holds predelay plus early taps.
+// L: length of one tail delay line, in samples.
+H = 262144;
+L = 131072;
+
+// hist: circular recording of the input. hw is the write position.
+hist = 0;
+hw = 0;
+
+// line0: first of the eight tail delay lines. Line k starts at line0 + k*L.
+line0 = H;
+
+// parm: start of the small tables that sit after the delay lines.
+parm = line0 + 8 * L;
+predef = parm;          // 9 room-size predelay defaults, milliseconds
+decdef = parm + 220;    // 9 room-size decay defaults, seconds
+dlen = parm + 16;       // 8 tail delay lengths, samples, recomputed in @slider
+ggain = parm + 32;      // 8 feedback gains, one per tail line
+rpos = parm + 48;       // 8 read/write positions inside the tail lines
+lp = parm + 64;         // 8 lowpass states (Warm or Cold brightness)
+hpst = parm + 80;       // 8 highpass states (Warm or Cold low-end removal)
+c2st = parm + 112;      // 8 lowpass states for the Tail Tone shelf
+taps = parm + 96;       // 16 early-tap delays, samples, recomputed in @slider
+egain = parm + 128;     // 16 early-tap gains actually used for audio
+bms = parm + 160;       // 8 base tail lengths for the Small room, milliseconds
+ets = parm + 176;       // 16 early-tap delays from the original integer table, at 44.1 kHz
+egs = parm + 200;       // 16 early-tap coefficients from that same table
+
+// Predelay the original plug-in loads when that room size is selected.
+// Order matches the Room size slider: box, tiny, small, medium, large,
+// extra-large, huge, grand, spring. Read off the display, not measured
+// from the audio. The effect opens on Medium, whose predelay is 33.
+predef[0] = 25;
+predef[1] = 30;
+predef[2] = 30;
+predef[3] = 33;
+predef[4] = 40;
+predef[5] = 45;
+predef[6] = 55;
+predef[7] = 53;
+predef[8] = 0;
+
+// Decay loaded with each room size, seconds. Same order as predef.
+// Box 0.5, Tiny 1, Small 2, Medium 2.5, Large 3, Extra-large 3.5,
+// Huge 4, Grand 5, Spring 2.
+decdef[0] = 0.5;
+decdef[1] = 1;
+decdef[2] = 2;
+decdef[3] = 2.5;
+decdef[4] = 3;
+decdef[5] = 3.5;
+decdef[6] = 4;
+decdef[7] = 5;
+decdef[8] = 2;
+
+// Tail line lengths for Room size = Small. These were chosen for this effect.
+// They are a spread of incommensurate lengths so the eight lines do not
+// ring at one pitch. @slider multiplies them by the room-size scale.
+bms[0] = 31;
+bms[1] = 37;
+bms[2] = 43;
+bms[3] = 53;
+bms[4] = 61;
+bms[5] = 71;
+bms[6] = 83;
+bms[7] = 97;
+
+// ets and egs are one table, split into two arrays.
+// The original plug-in stores 16 integer pairs. The first number of each
+// pair is copied into ets. The second number is copied into egs.
+// The pairs, in order, are:
+//   817/50, 1250/-22, 1300/60, 1600/-22, 1630/70, 1600/-22, 2000/75,
+//   2000/-22, 2500/83, 2500/-22, 3160/120, 2500/-22, 4600/150, 3150/-22,
+//   5000/150, 3500/-22.
+//
+// ets is treated here as a delay in samples at 44.1 kHz. That unit is
+// not proven. If it is right, the taps land from about 19 ms to 113 ms.
+// @slider scales them to the current sample rate and the room size.
+ets[0] = 817;
+ets[1] = 1250;
+ets[2] = 1300;
+ets[3] = 1600;
+ets[4] = 1630;
+ets[5] = 1600;
+ets[6] = 2000;
+ets[7] = 2000;
+ets[8] = 2500;
+ets[9] = 2500;
+ets[10] = 3160;
+ets[11] = 2500;
+ets[12] = 4600;
+ets[13] = 3150;
+ets[14] = 5000;
+ets[15] = 3500;
+
+// egs is the second integer of each pair. Every other value is -22
+// because that is what the file contains, not because this sketch chose it.
+// The eight -22 entries sit on their own delays (1250, 1600, 1600, 2000,
+// 2500, 2500, 3150, 3500). The other eight grow: 50, 60, 70, 75, 83, 120,
+// 150, 150. What the sign and the 22 mean inside the original plug-in is
+// unknown. An earlier version of this sketch sent negative entries to the
+// right channel only, which made the left much louder. @slider now takes
+// the absolute value, so a -22 tap is just a quieter tap (22 versus 50..150).
+egs[0] = 50;
+egs[1] = -22;
+egs[2] = 60;
+egs[3] = -22;
+egs[4] = 70;
+egs[5] = -22;
+egs[6] = 75;
+egs[7] = -22;
+egs[8] = 83;
+egs[9] = -22;
+egs[10] = 120;
+egs[11] = -22;
+egs[12] = 150;
+egs[13] = -22;
+egs[14] = 150;
+egs[15] = -22;
+
+// last_room / armed: the first load keeps the slider defaults above.
+// After that, changing Room size copies predef[room] and decdef[room]
+// into the Predelay and Decay sliders.
+last_room = -1;
+armed = 0;
+
+// ---------------------------------------------------------------------------
+// @slider runs when a slider moves, and once at load.
+// It turns slider positions into gains, delay lengths, and filter speeds.
+// ---------------------------------------------------------------------------
+@slider
+room = slider2 | 0;
+room < 0 ? room = 0;
+room > 8 ? room = 8;
+
+// Skip the write on the first call (armed is still 0), so the saved
+// slider defaults are what you see. last_room is updated before the
+// write so setting the sliders cannot loop.
+do_pre = 0;
+armed && room != last_room ? do_pre = 1;
+armed = 1;
+last_room = room;
+do_pre ? (
+  slider3 = predef[room];
+  slider1 = decdef[room];
+);
+
+pre_ms = slider3;
+pre_ms < 0 ? pre_ms = 0;
+pre_ms > 500 ? pre_ms = 500;
+
+// rt60 is the time to fall 60 dB. Twice the displayed Decay, from the
+// slope of the 5 s and 10 s captures (about -6 dB/s and -3 dB/s).
+decay = slider1;
+decay < 0.05 ? decay = 0.05;
+rt60 = decay * 2;
+
+// sc: room-size multiplier for both the tail lengths and the early taps.
+// Spring is the short one. These scales were chosen for this effect.
+sc = 1;
+room == 0 ? sc = 0.55;
+room == 1 ? sc = 0.75;
+room == 2 ? sc = 1;
+room == 3 ? sc = 1.4;
+room == 4 ? sc = 1.9;
+room == 5 ? sc = 2.6;
+room == 6 ? sc = 3.5;
+room == 7 ? sc = 4.6;
+room == 8 ? sc = 0.45;
+spring = 0;
+room == 8 ? spring = 1;
+
+// Shape only scales the early taps. The captures showed Square, Curved,
+// and Round differing in the first 0.1 s and matching after that.
+// 1.0, 0.35, and 0.25 are rough levels from those files, not a measured curve.
+shape_g = 1;
+slider4 >= 1 ? shape_g = 0.35;
+slider4 >= 2 ? shape_g = 0.25;
+
+// diffuse: 0..1. Used only to smear the early taps in @sample.
+diffuse = slider5 / 100;
+diffuse < 0 ? diffuse = 0;
+diffuse > 1 ? diffuse = 1;
+
+// c1, c2: Warm or Cold and Tail Tone as 0..1. Sliders are integers 0..7.
+c1 = (slider6 | 0) / 7;
+c1 < 0 ? c1 = 0;
+c1 > 1 ? c1 = 1;
+c2 = (slider7 | 0) / 7;
+c2 < 0 ? c2 = 0;
+c2 > 1 ? c2 = 1;
+
+// Warm or Cold filter speeds, per sample, inside each tail line.
+// lp_c: lowpass. Small at 0 (highs die, sound stays warm).
+//       Larger at 7 (highs keep circulating).
+// hp_c, hp_mix: highpass mix. Near 0 at the left of the grid, so lows
+//       last. At the right, hp_mix reaches 1 and the lows are stripped,
+//       which is what made the cool captures short.
+lp_c = 0.22 + c1 * 0.62;
+hp_c = 0.002 + c1 * 0.12;
+hp_mix = c1 * c1;
+spring ? lp_c = lp_c + 0.2;
+spring && lp_c > 0.95 ? lp_c = 0.95;
+spring && hp_mix < 0.35 ? hp_mix = 0.35;
+
+// Tail Tone lives in the tail feedback, not on the output. c2e follows the
+// middle column (Warm or Cold = 4): most of the brightening is done by step 5,
+// and 6 and 7 are nearly the same. The warm column (Warm or Cold = 0) keeps
+// moving a little at 6 and 7, so the top step here is slightly milder
+// than that column.
+// c2_damp is how much of a gentle lowpass replaces the feedback.
+// 0 at the top of the grid (highs last). About 0.15 at the bottom.
+c2e = 1 - pow(1 - c2, 4);
+c2_a = 0.26;
+c2_damp = (1 - c2e) * 0.15;
+
+// Equal-power dry/wet. Output slider is a dB trim on the wet path only.
+mix = slider8 / 100;
+mix < 0 ? mix = 0;
+mix > 1 ? mix = 1;
+wet_g = sin(mix * $pi * 0.5) * pow(10, slider9 / 20);
+dry_g = cos(mix * $pi * 0.5);
+
+// ets was stored as 44.1 kHz samples. rate_scale moves that to srate.
+rate_scale = srate / 44100;
+pre_samp = floor(pre_ms * 0.001 * srate);
+// right_extra: the captures at predelay 15 ms had the left onset at 15 ms
+// and the right onset at 20 ms. This is that extra 5 ms, shrinking if
+// Predelay is below 15.
+right_extra = floor(0.005 * srate * min(1, pre_ms / 15));
+
+// Build the eight tail lines. Feedback is set so a line of length ds
+// falls 60 dB in rt60 seconds: gain = 10 ^ (-3 * ds / srate / rt60).
+// Clamped so a very long Decay cannot run away.
+k = 0;
+loop(8,
+  ms = bms[k];
+  spring ? ms = 11 + k * 3.5;
+  ds = floor(ms * sc * 0.001 * srate);
+  ds < 8 ? ds = 8;
+  ds > L - 4 ? ds = L - 4;
+  dlen[k] = ds;
+  gv = pow(10, -3 * (ds / srate) / rt60);
+  gv > 0.98 ? gv = 0.98;
+  gv < 0 ? gv = 0;
+  ggain[k] = gv;
+  k += 1;
+);
+
+// Build the 16 early taps. The sign of egs is discarded. 400 is an
+// arbitrary loudness scale so the early part does not swamp the tail.
+k = 0;
+loop(16,
+  taps[k] = floor(ets[k] * rate_scale * sc);
+  rawg = egs[k];
+  rawg < 0 ? rawg = -rawg;
+  egain[k] = rawg / 400 * shape_g;
+  k += 1;
+);
+
+// ---------------------------------------------------------------------------
+// @sample runs once per sample. Input is summed to mono, then split again
+// into a stereo early part and a stereo tail.
+// ---------------------------------------------------------------------------
+@sample
+// inp: mono sum of the two input channels.
+inp = (spl0 + spl1) * 0.5;
+hist[hw] = inp;
+
+// pre: the input delayed by Predelay. This feeds the early taps and the tail.
+rd = hw - pre_samp;
+rd < 0 ? rd += H;
+pre = hist[rd];
+
+// Early taps. el is the left sum, er is the right sum.
+// Each tap is added to the left at its own delay. The right reads the same
+// history right_extra samples later, and every other tap is flipped in
+// sign so the two channels are not identical. Levels match. The flip was
+// chosen for this effect.
+el = 0;
+er = 0;
+k = 0;
+loop(16,
+  p = rd - taps[k];
+  p < 0 ? p += H;
+  q = p - right_extra;
+  q < 0 ? q += H;
+  g = egain[k];
+  k % 2 == 0 ? g = -g;
+  el = el + hist[p] * egain[k];
+  er = er + hist[q] * g;
+  k += 1;
+);
+
+// Diffuse blurs only this early sum. elp and erp are one-pole smoothers.
+// The tail lines below are not affected. The captures showed Diffuse
+// moving the 0.05 s to 0.2 s region and leaving the later tail almost still.
+smear = 0.2 + diffuse * 0.6;
+elp += smear * (el - elp);
+erp += smear * (er - erp);
+el = el * (1 - diffuse * 0.5) + elp * diffuse * 0.5;
+er = er * (1 - diffuse * 0.5) + erp * diffuse * 0.5;
+
+// Eight recirculating lines. Each sample reads the oldest value, filters
+// it, and writes input plus filtered feedback back into the same slot.
+inj = pre * 0.25;
+accL = 0;
+accR = 0;
+k = 0;
+loop(8,
+  addr = line0 + k * L;
+  rp = rpos[k];
+  v = addr[rp];
+  // Flush tiny values, same kind of threshold the original plug-in uses.
+  // Written as a decimal because REAPER rejects the 1e-15 spelling.
+  v > -0.000000000000001 && v < 0.000000000000001 ? v = 0;
+  lp[k] += lp_c * (v - lp[k]);
+  hpst[k] += hp_c * (v - hpst[k]);
+  hp = v - hpst[k];
+  rec = (1 - hp_mix) * lp[k] + hp_mix * hp;
+  // Tail Tone: pull highs out of the recirculating tail. Early taps above
+  // are already summed and are not passed through this filter.
+  c2st[k] += c2_a * (rec - c2st[k]);
+  rec = rec + (c2st[k] - rec) * c2_damp;
+  // pol: a fixed sign pattern so the eight lines are not all pushing
+  // the same way. Chosen for this effect.
+  pol = 1;
+  k == 1 || k == 2 || k == 4 || k == 7 ? pol = -1;
+  addr[rp] = inj * pol + rec * ggain[k];
+  nxt = rp + 1;
+  nxt >= dlen[k] ? nxt = 0;
+  rpos[k] = nxt;
+  // Even lines sum to the left, odd lines to the right.
+  k % 2 == 0 ? accL = accL + v : accR = accR + v;
+  k += 1;
+);
+
+// Mix a little of the other channel into each side so the tail is not
+// hard-panned. Early taps are scaled up (* 4) so they are audible
+// against the eight-line sum.
+wetL = accL * 0.35 + el * 4 + accR * 0.08;
+wetR = accR * 0.35 + er * 4 + accL * 0.08;
+
+spl0 = inp * dry_g + wetL * wet_g;
+spl1 = inp * dry_g + wetR * wet_g;
+
+hw += 1;
+hw >= H ? hw = 0;
